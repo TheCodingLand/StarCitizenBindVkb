@@ -1,0 +1,74 @@
+{
+    "left": {
+        "buttons": {
+            "Hat Up Left": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Up": {
+                "normal": "Increase Limiter Speed",
+                "modified": null
+            },
+            "Hat Up Right": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Left": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Right": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Down Left": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Down": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Down Right": {
+                "normal": null,
+                "modified": null
+            }
+        }
+    },
+    "right": {
+        "buttons": {
+            "Hat Up Left": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Up": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Up Right": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Left": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Right": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Down Left": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Down": {
+                "normal": null,
+                "modified": null
+            },
+            "Hat Down Right": {
+                "normal": null,
+                "modified": null
+            }
+        }
+    }
+}

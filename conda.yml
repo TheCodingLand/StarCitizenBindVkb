@@ -1,0 +1,6 @@
+name: sc_bindings_vkb
+dependencies:
+  - python=3.12
+  - xmltodict
+  - pydantic
+  - datamodel-code-generator
