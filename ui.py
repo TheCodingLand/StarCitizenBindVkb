@@ -1,31 +1,24 @@
-
-actions = {
-        "Select Action" :
-            {
-                "Cockpit" : {
-                    "Launch Missile", "Fire Weapon", "Increase Limiter Speed", "Decrease Limiter Speed"
-            },
-                "Camera":{
-                    "Camera UP", "Camera Down", "Camera Left", "Camera Right"
-                }
-            }
-        }
-
-
 import sys
 import json
 from typing import Optional, Dict
 from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QComboBox, QMessageBox
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRect, Qt, QEvent, QObject
+from PyQt6.QtGui import QKeyEvent
 from pydantic import BaseModel, Field
 import os
 
-# List of known Star Citizen actions (example)
-actions = ["Launch Missile", "Fire Weapon", "Increase Limiter Speed", "Decrease Limiter Speed", "Camera UP", "Camera Down", "Camera Left", "Camera Right"]
-
-
-
+# Updated list of known Star Citizen actions (example)
+actions = {
+    "Select Action": {
+        "Cockpit": [
+            "Launch Missile", "Fire Weapon", "Increase Limiter Speed", "Decrease Limiter Speed"
+        ],
+        "Camera": [
+            "Camera UP", "Camera Down", "Camera Left", "Camera Right"
+        ]
+    }
+}
 
 VKB_BUTTON_LIST = [
     "Hat Up Left",
@@ -91,11 +84,13 @@ class ControlMapperApp(QMainWindow):
         
         # Create the combo box for selecting actions
         self.action_combo_box: QComboBox = QComboBox(self)
-        self.action_combo_box.addItems(actions)
+        self.populate_action_combo_box()
         self.action_combo_box.setVisible(False)
         self.action_combo_box.setMinimumWidth(200)  # Make the drop-down wider
         self.action_combo_box.setMaxVisibleItems(10)  # Set max visible items in the drop-down
         self.action_combo_box.activated.connect(self.select_action)
+        self.action_combo_box.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.action_combo_box.installEventFilter(self)  # Install an event filter to handle key and focus events
 
         # Button to switch between left and right joysticks
         self.switch_button: QPushButton = QPushButton("Switch to Right Joystick", self)
@@ -120,6 +115,54 @@ class ControlMapperApp(QMainWindow):
         # Load the initial background image and create buttons for the left joystick
         self.load_background("vkb_left.png")
         self.create_joystick_buttons()
+
+    def populate_action_combo_box(self) -> None:
+        """Populate the action combo box with hierarchical action categories."""
+        self.action_combo_box.clear()
+        self.action_combo_box.addItem("Select Action")
+        for category, sub_actions in actions["Select Action"].items():
+            self.action_combo_box.addItem(category)
+
+    def show_action_selector(self, button: QPushButton, label: str) -> None:
+        """Show a combo box near the selected button for action selection."""
+        self.action_combo_box.move(button.x() + button.width() + 10, button.y())
+        self.action_combo_box.setVisible(True)
+        self.action_combo_box.raise_()  # Bring the combo box to the front
+        self.action_combo_box.setProperty("current_label", label)
+        self.action_combo_box.setFocus()
+
+    def select_action(self, index: int) -> None:
+        """Handle the selection of an action from the combo box."""
+        selected_item = self.action_combo_box.currentText().strip()
+        label: str = self.action_combo_box.property("current_label")
+
+        # If a category is selected, populate with sub-actions and immediately drop down
+        if selected_item in actions["Select Action"]:
+            self.action_combo_box.clear()
+            self.action_combo_box.addItem("Back")
+            for action in actions["Select Action"][selected_item]:
+                self.action_combo_box.addItem(action)
+            self.action_combo_box.showPopup()  # Automatically drop down the menu
+        elif selected_item == "Back":
+            # Re-populate with top-level categories and immediately drop down
+            self.populate_action_combo_box()
+            self.action_combo_box.showPopup()
+        elif label and selected_item != "Select Action":
+            # Set the action for the button
+            self.current_config.set_mapping(label, selected_item, modifier=self.modifier_enabled)
+            self.button_refs[label].setText(f"{selected_item}")
+            self.action_combo_box.setVisible(False)
+
+    def eventFilter(self, source: QObject, event: QKeyEvent ) -> bool:
+        """Event filter to handle escape key and click-away events for the combo box."""
+        if source == self.action_combo_box:
+            if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape:
+                self.action_combo_box.setVisible(False)
+                return True
+            #elif event.type() == event.Type.F:
+            #    self.action_combo_box.setVisible(False)
+            #    return True
+        return super().eventFilter(source, event)
 
     def toggle_joystick(self) -> None:
         """Toggle between the left and right joystick layouts."""
@@ -219,22 +262,6 @@ class ControlMapperApp(QMainWindow):
         button.clicked.connect(lambda: self.show_action_selector(button, label))
         button.show()
         self.button_refs[label] = button
-
-    def show_action_selector(self, button: QPushButton, label: str) -> None:
-        """Show a combo box near the selected button for action selection."""
-        self.action_combo_box.move(button.x() + button.width() + 10, button.y())
-        self.action_combo_box.setVisible(True)
-        self.action_combo_box.raise_()  # Bring the combo box to the front
-        self.action_combo_box.setProperty("current_label", label)
-
-    def select_action(self, index: int) -> None:
-        """Handle the selection of an action from the combo box."""
-        action: str = self.action_combo_box.currentText()
-        label: str = self.action_combo_box.property("current_label")
-        if label:
-            self.current_config.set_mapping(label, action, modifier=self.modifier_enabled)
-            self.button_refs[label].setText(f"{label}: {action}")
-        self.action_combo_box.setVisible(False)
 
     def save_config(self) -> None:
         """Save the current joystick configurations to a config file."""
