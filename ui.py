@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import json
 from typing import Optional, Dict
@@ -7,6 +8,10 @@ from PyQt6.QtCore import QRect, Qt, QEvent, QObject
 from PyQt6.QtGui import QKeyEvent
 from pydantic import BaseModel, Field
 import os
+
+current_path= Path(__file__).parent
+left_image_path = current_path / "images/vkb_left.png"
+right_image_path = current_path / "images/vkb_right.png"
 
 # Updated list of known Star Citizen actions (example)
 actions = {
@@ -137,7 +142,7 @@ class ControlMapperApp(QMainWindow):
         self.load_button.clicked.connect(self.load_config)
 
         # Load the initial background image and create buttons for the left joystick
-        self.load_background("vkb_left.png")
+        self.load_background(str(left_image_path))
         self.create_joystick_buttons()
 
     def populate_action_combo_box(self) -> None:
@@ -218,12 +223,12 @@ class ControlMapperApp(QMainWindow):
             self.current_joystick = "right"
             self.current_config = self.right_joystick_config
             self.switch_button.setText("Switch to Left Joystick")
-            self.load_background("vkb_right.png")  # Replace with the path to the right joystick image
+            self.load_background(str(right_image_path))  # Replace with the path to the right joystick image
         else:
             self.current_joystick = "left"
             self.current_config = self.left_joystick_config
             self.switch_button.setText("Switch to Right Joystick")
-            self.load_background("vkb_left.png")  # Replace with the path to the left joystick image
+            self.load_background(str(left_image_path))  # Replace with the path to the left joystick image
         
         # Update joystick buttons to reflect the current configuration
         self.update_joystick_buttons()
