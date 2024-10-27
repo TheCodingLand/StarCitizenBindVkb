@@ -14,11 +14,11 @@
                 "modified": null
             },
             "Hat Left": {
-                "normal": null,
+                "normal": "Fire Weapon",
                 "modified": null
             },
             "Hat Right": {
-                "normal": null,
+                "normal": "Launch Missile",
                 "modified": null
             },
             "Hat Down Left": {
@@ -26,7 +26,7 @@
                 "modified": null
             },
             "Hat Down": {
-                "normal": null,
+                "normal": "Decrease Limiter Speed",
                 "modified": null
             },
             "Hat Down Right": {

@@ -59,6 +59,29 @@ class JoystickConfigModel(BaseModel):
         return f"JoystickConfigModel(buttons={self.buttons})"
 
 class ControlMapperApp(QMainWindow):
+    def apply_button_style(self, button: QPushButton, action: bool) -> None:
+        """Apply the style to the button based on whether an action is set or not."""
+        if action:
+            button.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(150, 255, 150, 100);
+                    color: rgba(0, 0, 0, 255);
+                    border: 2px solid rgba(0, 255, 0, 180);
+                }
+            """)
+        else:
+            button.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(255, 255, 255, 255);
+                    color: rgba(150, 150, 150, 255);
+                    border: 2px solid rgba(255, 255, 255, 0);
+                }
+                QPushButton:hover {
+                    background-color: rgba(150, 150, 255, 100);
+                    color: rgba(255, 255, 255, 255);
+                    border: 2px solid rgba(255, 255, 255, 180);
+                }
+            """)
     CONFIG_FILE = "config.json"
 
     def __init__(self) -> None:
@@ -84,6 +107,7 @@ class ControlMapperApp(QMainWindow):
         
         # Create the combo box for selecting actions
         self.action_combo_box: QComboBox = QComboBox(self)
+        self.action_combo_box.setPlaceholderText("--Select Action--")
         self.populate_action_combo_box()
         self.action_combo_box.setVisible(False)
         self.action_combo_box.setMinimumWidth(200)  # Make the drop-down wider
@@ -118,11 +142,14 @@ class ControlMapperApp(QMainWindow):
 
     def populate_action_combo_box(self) -> None:
         """Populate the action combo box with hierarchical action categories."""
+        self.action_combo_box.setPlaceholderText("--Select Action--")
         self.action_combo_box.clear()
-        self.action_combo_box.addItem("Select Action")
+        
+        self.action_combo_box.addItem("Clear Action")
         for category, sub_actions in actions["Select Action"].items():
             self.action_combo_box.addItem(category)
-
+        # set the default text to be something other than the first item
+        
     def show_action_selector(self, button: QPushButton, label: str) -> None:
         """Show a combo box near the selected button for action selection."""
         self.action_combo_box.move(button.x() + button.width() + 10, button.y())
@@ -130,6 +157,7 @@ class ControlMapperApp(QMainWindow):
         self.action_combo_box.raise_()  # Bring the combo box to the front
         self.action_combo_box.setProperty("current_label", label)
         self.action_combo_box.setFocus()
+        
 
     def select_action(self, index: int) -> None:
         """Handle the selection of an action from the combo box."""
@@ -145,23 +173,40 @@ class ControlMapperApp(QMainWindow):
             self.action_combo_box.showPopup()  # Automatically drop down the menu
         elif selected_item == "Back":
             # Re-populate with top-level categories and immediately drop down
+            
             self.populate_action_combo_box()
             self.action_combo_box.showPopup()
-        elif label and selected_item != "Select Action":
+        elif label and selected_item == "Clear Action":
+            self.current_config.set_mapping(label, None, modifier=self.modifier_enabled)
+            self.button_refs[label].setText(label)
+            self.set_button_style(label)
+            self.action_combo_box.setVisible(False)
+            self.populate_action_combo_box()
+        elif label:
             # Set the action for the button
             self.current_config.set_mapping(label, selected_item, modifier=self.modifier_enabled)
             self.button_refs[label].setText(f"{selected_item}")
             self.action_combo_box.setVisible(False)
+            self.set_button_style(label)
+            self.action_combo_box.clear()
+            self.populate_action_combo_box()
 
-    def eventFilter(self, source: QObject, event: QKeyEvent ) -> bool:
+    def set_button_style(self, label: str) -> None:
+        """Set the style of the button based on the presence of an action mapping."""
+        action: Optional[str] = self.current_config.get_mapping(label, modifier=self.modifier_enabled)
+        button: QPushButton = self.button_refs[label]
+        self.apply_button_style(button, action=bool(action))
+        button.repaint()
+
+
+    def eventFilter(self, source: QObject, event: QKeyEvent) -> bool:
         """Event filter to handle escape key and click-away events for the combo box."""
         if source == self.action_combo_box:
-            if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape:
-                self.action_combo_box.setVisible(False)
-                return True
-            #elif event.type() == event.Type.F:
-            #    self.action_combo_box.setVisible(False)
-            #    return True
+            if event.type() == QEvent.Type.KeyPress:
+                key_event = event  # Cast to QKeyEvent to access key()
+                if key_event.key() == Qt.Key.Key_Escape:
+                    self.action_combo_box.setVisible(False)
+                    return True
         return super().eventFilter(source, event)
 
     def toggle_joystick(self) -> None:
@@ -240,25 +285,17 @@ class ControlMapperApp(QMainWindow):
 
             # Update button label based on the current config mapping
             action: Optional[str] = self.current_config.get_mapping(label, modifier=self.modifier_enabled)
-            button.setText(f"{action}" if action else label)
-            button.show()
+            if action:
+                button.setText(f"{action}")
+            else:
+                button.setText(label)
+            self.set_button_style(label)
 
     def create_mappable_button(self, label: str, geometry: QRect) -> None:
         """Create a mappable button with the given label and geometry."""
         button: QPushButton = QPushButton(label, self)
         button.setGeometry(geometry)
-        button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 255, 255, 255);
-                color: rgba(0, 0, 0, 255);
-                border: 2px solid rgba(255, 255, 255, 0);
-            }
-            QPushButton:hover {
-                background-color: rgba(150, 150, 255, 100);
-                color: rgba(255, 255, 255, 255);
-                border: 2px solid rgba(255, 255, 255, 180);
-            }
-        """)
+        self.apply_button_style(button, action=False)
         button.clicked.connect(lambda: self.show_action_selector(button, label))
         button.show()
         self.button_refs[label] = button
