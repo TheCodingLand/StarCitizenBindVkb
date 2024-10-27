@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<ActionMaps version="1" optionsVersion="2" rebindVersion="2" profileName="HCS Default">
-  <CustomisationUIHeader label="HCS Default" description="" image="">
+<ActionMaps version="1" optionsVersion="2" rebindVersion="2" profileName="Default">
+  <CustomisationUIHeader label="Default" description="" image="">
     <devices>
       <keyboard instance="1" />
       <mouse instance="1" />
