@@ -7,3 +7,5 @@ dependencies:
   - pip
   - pip:
     - pyqt6
+    - git+https://gitlab.com/scmodding/frameworks/scdatatools.git
+
