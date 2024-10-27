@@ -4,3 +4,6 @@ dependencies:
   - xmltodict
   - pydantic
   - datamodel-code-generator
+  - pip
+  - pip:
+    - pyqt6
