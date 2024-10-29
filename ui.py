@@ -1,14 +1,18 @@
 from pathlib import Path
 import sys
 import json
-from typing import Optional, Dict
+from typing import Literal, Optional, Dict
 from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QComboBox, QMessageBox
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
 from PyQt6.QtGui import QKeyEvent
-from pydantic import BaseModel, Field
-import os
 
+
+import os
+from actions import get_all_defined_game_actions, get_all_subcategories_actions
+from configmap import ExportedActionMapsFile, Rebind, get_action_maps_object
+from globals import get_installation
+from joystick import Joystick, get_joystick_buttons
 current_path= Path(__file__).parent
 left_image_path = current_path / "images/vkb_left.png"
 right_image_path = current_path / "images/vkb_right.png"
@@ -25,43 +29,12 @@ actions = {
     }
 }
 
-VKB_BUTTON_LIST = [
-    "Hat Up Left",
-    "Hat Up",
-    "Hat Up Right",
-    "Hat Left",
-    "Hat Right",
-    "Hat Down Left",
-    "Hat Down",
-    "Hat Down Right"
-]
+actions = get_all_subcategories_actions()
 
-class ButtonMapping(BaseModel):
-    normal: Optional[str] = Field(None, description="Action mapped without modifier")
-    modified: Optional[str] = Field(None, description="Action mapped with modifier")
 
-class JoystickConfigModel(BaseModel):
-    buttons: Dict[str, ButtonMapping] = Field(default_factory=lambda: {label: ButtonMapping() for label in VKB_BUTTON_LIST})
+width: int = 155
+height: int = 35
 
-    def set_mapping(self, label: str, action: str, modifier: bool = False) -> None:
-        """Set the action mapping for a specific button."""
-        if modifier:
-            self.buttons[label].modified = action
-        else:
-            self.buttons[label].normal = action
-
-    def get_mapping(self, label: str, modifier: bool = False) -> Optional[str]:
-        """Get the action mapping for a specific button."""
-        return self.buttons[label].modified if modifier else self.buttons[label].normal
-
-    def clear_mappings(self) -> None:
-        """Clear all mappings."""
-        for mapping in self.buttons.values():
-            mapping.normal = None
-            mapping.modified = None
-
-    def __repr__(self) -> str:
-        return f"JoystickConfigModel(buttons={self.buttons})"
 
 class ControlMapperApp(QMainWindow):
     def apply_button_style(self, button: QPushButton, action: bool) -> None:
@@ -97,11 +70,11 @@ class ControlMapperApp(QMainWindow):
         self.setGeometry(100, 100, 1950, 938)  # Match to image size
         self.background_label: QLabel = QLabel(self)
         self.background_label.setGeometry(0, 0, 1950, 938)
-        
+
         # Store joystick configurations
-        self.left_joystick_config: JoystickConfigModel = JoystickConfigModel()
-        self.right_joystick_config: JoystickConfigModel = JoystickConfigModel()
-        self.current_config: JoystickConfigModel = self.left_joystick_config  # Start with left joystick config
+        self.left_joystick_config: Joystick = Joystick(side="left", buttons=get_joystick_buttons())
+        self.right_joystick_config: Joystick = Joystick(side="right", buttons=get_joystick_buttons())
+        self.current_config: Joystick = self.left_joystick_config  # Start with left joystick config
         self.current_joystick: str = "left"
         
         # Modifier state
@@ -115,7 +88,7 @@ class ControlMapperApp(QMainWindow):
         self.action_combo_box.setPlaceholderText("--Select Action--")
         self.populate_action_combo_box()
         self.action_combo_box.setVisible(False)
-        self.action_combo_box.setMinimumWidth(200)  # Make the drop-down wider
+        self.action_combo_box.setMinimumWidth(300)  # Make the drop-down wider
         self.action_combo_box.setMaxVisibleItems(10)  # Set max visible items in the drop-down
         self.action_combo_box.activated.connect(self.select_action)
         self.action_combo_box.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -145,13 +118,122 @@ class ControlMapperApp(QMainWindow):
         self.load_background(str(left_image_path))
         self.create_joystick_buttons()
 
+        self.install =  get_installation("LIVE")
+        self.exported_control_maps = self.install.exported_control_maps
+
+        # select box for the control maps
+        self.control_maps_combo_box: QComboBox = QComboBox(self)
+        self.control_maps_combo_box.setPlaceholderText("--Select Control Map--")
+        self.control_maps_combo_box.setVisible(True)
+        self.control_maps_combo_box.setGeometry(850, 10, 200, 40)
+        self.control_maps_combo_box.setMinimumWidth(400)  # Make the drop-down wider
+        self.control_maps_combo_box.setMaxVisibleItems(10)  # Set max visible items in the drop-down
+        self.control_maps_combo_box.activated.connect(self.select_control_map)
+        self.control_maps_combo_box.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.control_maps_combo_box.installEventFilter(self)  # Install an event filter to handle key and focus events
+        self.populate_control_maps_combo_box()
+
+    def select_control_map(self, index: int) -> None:
+        control_map_file = self.exported_control_maps[index]
+        # self.control_map = get_action_maps_object(control_map_file)
+        self.control_map = get_action_maps_object(f"{current_path}/data/layout_BK_DualVKB_3-22_exported.xml")
+
+        self.joystick_sides= self.get_joystick_sides(self.control_map)
+        for button in self.left_joystick_config.buttons.values():
+            button.actions = []
+        for button in self.right_joystick_config.buttons.values():
+            button.actions = []
+        
+        for actionmap in self.control_map.actionmap:
+            modifier=False
+            for action in actionmap.action:
+                print(action)
+                #print(action.name)
+                if isinstance(action.rebinding, Rebind):
+                    print(action.rebinding.input)
+                    if action.rebinding.input.startswith("js"):
+                        joy_command_input_string = action.rebinding.input
+                        
+                        if "+" in action.rebinding.input:
+                            modifier = True
+                            joy_modifier, js_button = action.rebinding.input.split("+")
+                            joy_command_input_string.replace("js", "")
+                            js_str = split_str_action[0]
+                        else:
+                            split_str_action = joy_command_input_string.split("_")
+                            if len(split_str_action) == 2:
+                                js_str, js_button = split_str_action
+                            elif len(split_str_action) >2:
+                                js_str = split_str_action[0]
+                                js_button = "_".join(split_str_action[1:])
+                            else:
+                                print(f"error: splitting joystick input string returned unexpected segments - {action.rebinding.input}")
+
+                        if js_button == " " or js_button == "": # we don't want to map empty buttons
+                            continue
+                        try:
+                            js_number = js_str[2:]
+                        except:
+                            print(f"error: parsing joystick number from {js_str} - {action.rebinding.input}")
+                            continue
+                        side = self.joystick_sides[int(js_number)]
+                        if side == "left":
+                            self.left_joystick_config.set_mapping(js_button, action.name, modifier=modifier)
+                        else:
+                            self.right_joystick_config.set_mapping(js_button, action.name, modifier=modifier)
+        
+        default_actions = get_all_defined_game_actions()
+        js1 = self.joystick_sides[1]
+        
+        if js1 == "left":
+            default_joystick= self.left_joystick_config
+        else:
+            default_joystick= self.right_joystick_config
+    
+
+        for action in default_actions.values():
+
+            if action.joystick and action.joystick not in [' ', '',None]:
+                
+                for button in default_joystick.buttons.values():
+ 
+                    if len(button.actions) == 0 and button.name == action.joystick and  action.main_category in [ "@ui_CCSpaceFlight", '@ui_CCVehicle']:
+                        default_joystick.set_mapping(button.name, action.name)
+                      
+        self.update_joystick_buttons()
+
+                    # need to know if js1 is left or right, then we can map the action to the button
+
+    def get_joystick_sides(self, control_map: ExportedActionMapsFile) -> Dict[int, str]:
+        instance_options = {} # extra joystick options, we will later display it in the UI
+        instance_number_mapping = {}
+        for option in control_map.options:
+            if option.product is None:
+                continue
+            if 'VKBsim Gladiator EVO' in option.product and "L" in option.product.split("{")[0]:
+                instance_number_mapping[option.instance] = "left"
+                instance_options[option.instance] = option.model_extra
+            if 'VKBsim Gladiator EVO' in option.product and "R" in option.product.split("{")[0]:
+                instance_number_mapping[option.instance] = "right"
+                instance_options[option.instance] = option.model_extra
+        return instance_number_mapping
+    
+        
+    def populate_control_maps_combo_box(self) -> None:
+        """Populate the control maps combo box with the available control maps."""
+        self.control_maps_combo_box.clear()
+        for control_map in self.exported_control_maps:
+            self.control_maps_combo_box.addItem(control_map.split(os.sep)[-1])
+        # set the default text to be something other than the first item
+
+
     def populate_action_combo_box(self) -> None:
         """Populate the action combo box with hierarchical action categories."""
         self.action_combo_box.setPlaceholderText("--Select Action--")
         self.action_combo_box.clear()
         
         self.action_combo_box.addItem("Clear Action")
-        for category, sub_actions in actions["Select Action"].items():
+        for category, sub_actions in actions.items():
             self.action_combo_box.addItem(category)
         # set the default text to be something other than the first item
         
@@ -170,10 +252,10 @@ class ControlMapperApp(QMainWindow):
         label: str = self.action_combo_box.property("current_label")
 
         # If a category is selected, populate with sub-actions and immediately drop down
-        if selected_item in actions["Select Action"]:
+        if selected_item in actions:
             self.action_combo_box.clear()
             self.action_combo_box.addItem("Back")
-            for action in actions["Select Action"][selected_item]:
+            for action in actions[selected_item]:
                 self.action_combo_box.addItem(action)
             self.action_combo_box.showPopup()  # Automatically drop down the menu
         elif selected_item == "Back":
@@ -182,7 +264,7 @@ class ControlMapperApp(QMainWindow):
             self.populate_action_combo_box()
             self.action_combo_box.showPopup()
         elif label and selected_item == "Clear Action":
-            self.current_config.set_mapping(label, None, modifier=self.modifier_enabled)
+            self.current_config.clear_mapping(label, modifier=self.modifier_enabled)
             self.button_refs[label].setText(label)
             self.set_button_style(label)
             self.action_combo_box.setVisible(False)
@@ -190,7 +272,8 @@ class ControlMapperApp(QMainWindow):
         elif label:
             # Set the action for the button
             self.current_config.set_mapping(label, selected_item, modifier=self.modifier_enabled)
-            self.button_refs[label].setText(f"{selected_item}")
+            mapping = self.current_config.get_mapping(label, modifier=self.modifier_enabled)
+            self.button_refs[label].setText(f"{mapping}")
             self.action_combo_box.setVisible(False)
             self.set_button_style(label)
             self.action_combo_box.clear()
@@ -198,9 +281,9 @@ class ControlMapperApp(QMainWindow):
 
     def set_button_style(self, label: str) -> None:
         """Set the style of the button based on the presence of an action mapping."""
-        action: Optional[str] = self.current_config.get_mapping(label, modifier=self.modifier_enabled)
+        actions: Optional[str] = self.current_config.get_mapping(label, modifier=self.modifier_enabled)
         button: QPushButton = self.button_refs[label]
-        self.apply_button_style(button, action=bool(action))
+        self.apply_button_style(button, action=len(actions)>0)
         button.repaint()
 
 
@@ -237,6 +320,9 @@ class ControlMapperApp(QMainWindow):
         """Toggle the modifier state and update the button mappings."""
         self.modifier_enabled = not self.modifier_enabled
         self.modifier_button.setText("Disable Modifier" if self.modifier_enabled else "Enable Modifier")
+        
+        
+            
         self.update_joystick_buttons()
 
     def save_current_mappings(self) -> None:
@@ -255,36 +341,24 @@ class ControlMapperApp(QMainWindow):
 
     def create_joystick_buttons(self) -> None:
         """Create buttons based on the current joystick state."""
-        width: int = 155
-        height: int = 35
+        
 
-        col_1_left: int = 71
-        col_2_left: int = 265
-        col_3_left: int = 453
-        row_1_top: int = 52
-        row_2_top: int = 52 + height
-        row_3_top: int = 52 + height + height
+        for button in self.current_config.buttons.values():
+            if not button.visible:
+                continue
+            self.create_mappable_button(button.name, QRect(button.coord_x_left[self.current_config.side], button.coord_y_top, width, height))
+        
 
-        self.buttons: list[tuple[str, QRect]] = [
-            ("Hat Up Left", QRect(col_1_left, row_1_top, width, height)),
-            ("Hat Up", QRect(col_2_left, row_1_top, width, height)),
-            ("Hat Up Right", QRect(col_3_left, row_1_top, width, height)),
-            ("Hat Left", QRect(col_1_left, row_2_top, width, height)),
-            ("Hat Right", QRect(col_3_left, row_2_top, width, height)),
-            ("Hat Down Left", QRect(col_1_left, row_3_top, width, height)),
-            ("Hat Down", QRect(col_2_left, row_3_top, width, height)),
-            ("Hat Down Right", QRect(col_3_left, row_3_top, width, height))
-        ]
-
-        for label, geometry in self.buttons:
-            self.create_mappable_button(label, geometry)
 
     def update_joystick_buttons(self) -> None:
         """Update button positions and labels based on the current joystick layout."""
-        width: int = 155
-        for label, geometry in self.buttons:
-            if self.current_joystick == "right":
-                geometry = QRect(1950 + 35 - geometry.x() - width, geometry.y(), width, geometry.height())
+        
+        for joy_button in self.current_config.buttons.values():
+            label: str = joy_button.name
+            geometry: QRect = QRect(joy_button.coord_x_left[self.current_config.side], joy_button.coord_y_top, width, height)
+            #if self.current_joystick == "right":
+            #    geometry = QRect(1420 + 35 + geometry.x() - width, geometry.y(), width, geometry.height())
+
             button: QPushButton = self.button_refs[label]
             button.setGeometry(geometry)
 
@@ -305,6 +379,7 @@ class ControlMapperApp(QMainWindow):
         button.show()
         self.button_refs[label] = button
 
+    
     def save_config(self) -> None:
         """Save the current joystick configurations to a config file."""
         self.save_current_mappings()
@@ -324,8 +399,8 @@ class ControlMapperApp(QMainWindow):
             if os.path.exists(self.CONFIG_FILE):
                 with open(self.CONFIG_FILE, 'r') as f:
                     data = json.load(f)
-                    self.left_joystick_config = JoystickConfigModel.model_validate(data["left"])
-                    self.right_joystick_config = JoystickConfigModel.model_validate(data["right"])
+                    self.left_joystick_config = Joystick.model_validate(data["left"])
+                    self.right_joystick_config = Joystick.model_validate(data["right"])
                 if self.current_joystick == "left":
                     self.current_config = self.left_joystick_config
                 else:

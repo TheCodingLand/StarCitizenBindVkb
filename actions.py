@@ -1,16 +1,22 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from rich import inspect
-current_path= Path(__file__).parent
-actionmaps_path = current_path / 'data' / 'actionmap.json'
-actionmaps = json.loads(actionmaps_path.read_text())
-from pydantic import BaseModel, Field, field_validator
-#{'Emergency Exit Seat': {'activationmode': 'tap', 'keyboard': 'u+lshift', 'joystick': ' ', 'uidescription': 'Press LShift + H to engage emergency exit'}, 'Eject': {'activationmode': 'press', 'keyboard': 'ralt+y', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_ciejectdesc', 'category': 'playeractions'}, 'Look behind': {'activationmode': 'delayed_hold_no_retrigger', 'keyboard': 'comma', 'joystick': ' ', 'gamepad': 'shoulderl+a', 'uidescription': '@ui_cilookbehinddesc'}, '@ui_ciminingmode': {'activationmode': 'press', 'keyboard': 'm', 'gamepad': ' ', 'joystick': ' ', 'uidescription': 'Mining Mode Toggle', 'category': 'shipsystems'}, '@ui_cisalvagemode': {'activationmode': 'press', 'keyboard': 'm', 'gamepad': ' ', 'joystick': ' ', 'uidescription': 'Activate salvage mode when seated.', 'category': 'shipsystems'}, '@ui_ciscanningmode': {'activationmode': 'press', 'keyboard': 'v', 'gamepad': 'dpad_right', 'joystick': ' ', 'uidescription': '@ui_ciscanningmodedesc', 'category': 'shipsystems'}, '@ui_ciquantumtravelsystemtoggle': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_ciquantumtravelsystemtoggledesc', 'category': 'shipsystems'}, '@ui_cimissilemode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_cimissilemodedesc', 'category': 'shipsystems'}, '@ui_v_toggle_guns_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_toggle_guns_mode_desc', 'category': 'shipsystems'}, '@ui_v_toggle_flight_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_toggle_flight_mode_desc', 'category': 'shipsystems'}, '@ui_v_set_mining_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_set_mining_mode_desc'}, '@ui_v_set_salvage_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_set_salvage_mode_desc'}, '@ui_v_set_scan_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_set_scan_mode_desc'}, '@ui_v_set_quantum_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_set_quantum_mode_desc'}, '@ui_v_set_missile_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_set_missile_mode_desc'}, '@ui_v_set_guns_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_set_guns_mode_desc'}, '@ui_v_set_flight_mode': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_set_flight_mode_desc'}, 'Enter Remote Turret 1': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ ', 'category': 'remoteturret'}, 'Enter Remote Turret 2': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ ', 'category': 'remoteturret'}, 'Enter Remote Turret 3': {'activationmode': 'press', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ ', 'category': 'remoteturret'}, 'Next Operator Mode': {'activationmode': 'tap', 'keyboard': 'mouse3', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_operator_mode_toggle_next_desc', 'category': 'shipsystems'}, 'Previous Operator Mode': {'activationmode': 'tap', 'keyboard': ' ', 'gamepad': ' ', 'joystick': ' ', 'uidescription': '@ui_v_operator_mode_toggle_prev_desc', 'category': 'shipsystems'}}class 
 
-def get_localization_string(string: str ) -> str:
-    return string
+from localization import LocalizationFile
+
+from pydantic import BaseModel, Field, field_validator
+
+current_path= Path(__file__).parent
+
+SC = "LIVE"
+SC_VERSION = "sc-alpha-3.24.2-9381373"
+sc_actionmaps_path = current_path / 'data' / 'LIVE' /SC_VERSION / f"actionmap.json"
+actionmaps = json.loads(sc_actionmaps_path.read_text())
+
+localization_file_path = current_path / 'data' / 'Localization' / 'english'/ 'global.ini'
+localization_file = LocalizationFile.from_file(localization_file_path)
 
 
 class Input(BaseModel):
@@ -30,46 +36,64 @@ class JoyInputValue(BaseModel):
 
 class Action(BaseModel):    
     name: str
-    states: Dict[str, Any] | None = None
-    activationmode: str | None = None
-    keyboard: InputData | str | None = None
-    mouse: InputData | str | None = None
-    gamepad: InputData | str | None = None
-    joystick: JoyInputValue | str | None = None
-    uidescription: str | None = None
-    category: str | None = None
+    states: Dict[str, Any] | None = Field(None, alias='@states')
+    activationmode: str | None = Field(None, alias='@activationMode')
+    keyboard: InputData | str | None = Field(None, alias='@keyboard')
+    mouse: InputData | str | None = Field(None, alias='@mouse')
+    gamepad: InputData | str | None = Field(None, alias='@gamepad')
+    joystick: JoyInputValue | str | None = Field(None, alias='@joystick')
+    uidescription: str | None = Field(None, alias='@UIDescription')
+    category: str | None = Field(None, alias='@Category')
+    ui_label: str | None = Field(None, alias='@UILabel')
+    main_category: str = Field(...)
+    sub_category: str = Field(...)
 
     
-
     @field_validator('name')
     @classmethod
     def localization_validator(cls, value: str):
         if value.startswith('@'):
-            value = get_localization_string(value)
-            return value
+            #value = localization_file.get_localization_string(value)
+            return value[1:]
         return value
 
     @field_validator('gamepad', mode='before')
     @classmethod
-    def gamepad_validator(cls, value: str) -> str:
+    def gamepad_validator(cls, value: str |  Dict[str, Any]) -> str | Dict[str, Any]:
         if isinstance(value, dict):
             if '@input' in value:
                 value = value['@input']
-            
-           
             return value
         return value
 
-possible_actions :List[Action]= []
 
-for main_category, sub_categories in actionmaps.items():
-    for sub_category, actions in sub_categories.items():
-        for action_label, action in actions.items():
-            action = Action(name=action_label,**action)
-            possible_actions.append(action)
-for action in possible_actions:
-    if isinstance(action.joystick, JoyInputValue):
-        inspect(action)
-    if isinstance(action.joystick, str) and action.joystick not in [' ', None, '']:
-        inspect(action)
-#inspect(possible_actions)
+
+
+def get_all_defined_game_actions() -> Dict[str, Action]:
+    possible_actions: List[Action]= []
+
+    for main_category, sub_categories in actionmaps.items():
+        for sub_category, actions in sub_categories.items():
+            for action_label, action in actions.items():
+                action = Action(name=action_label, main_category=main_category, sub_category=sub_category,**action,)
+                possible_actions.append(action)
+    return {action.name: action for action in possible_actions}
+
+
+def get_all_subcategories_actions() -> Dict[str, Any]:
+    subcat_actions= {}
+    for main_category, sub_categories in actionmaps.items():
+        for sub_category, actions in sub_categories.items():
+            subcat_actions[sub_category] = actions
+    return subcat_actions
+    
+
+
+if __name__ == "__main__":
+    x= get_all_defined_game_actions()
+    print (x)
+    for action in x.values():
+        if action.joystick and action.joystick not in [' ', '',None]:
+            print (action.name)
+            print(action.joystick)
+            

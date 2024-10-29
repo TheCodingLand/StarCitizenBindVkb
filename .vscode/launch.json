@@ -9,7 +9,11 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "env":{
+                "PYTHONPATH": "F:/CodeProjects/2024/starfab/frameworks/scdatatools"
+            }
+
         }
     ]
 }
