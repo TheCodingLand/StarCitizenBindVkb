@@ -11,8 +11,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "env":{
-                "PYTHONPATH": "F:/CodeProjects/2024/starfab/frameworks/scdatatools"
-            }
+                "PYTHONPATH": "F:/CodeProjects/2024/starfab/frameworks/scdatatools;${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}"
 
         }
     ]

@@ -1,6 +1,6 @@
 # StarCitizen Bind VKB
 
-![logo](images/app_icon.png)
+![logo](app/data/images/app_icon.png)
 
 ## Work in Progress
 

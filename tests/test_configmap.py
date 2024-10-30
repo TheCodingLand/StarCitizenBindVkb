@@ -4,7 +4,7 @@ from typing import List, TypeVar
 from pydantic import BaseModel, Field
 
 from models.actions import get_all_defined_game_actions
-from models.configmap import ActionMapsFile, get_action_maps_file, Action
+from app.models.configmap import ActionMapsFile, get_action_maps_file, Action
 
 
 SC = "LIVE"

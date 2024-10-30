@@ -7,34 +7,34 @@ from typing import Dict, Optional, List
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QMessageBox, QComboBox,
-    QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QListWidgetItem
+    QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
 from PyQt6.QtGui import QPixmap, QIcon
-from localization import LocalizationFile
-from models import configmap
-from models.joystick import JoystickConfig, JoyAction, get_joystick_buttons
-from models.ui_action import ActionSelectionDialog
-from utils.logger import setup_logging
+
+from app.models import configmap
+from app.models.joystick import JoystickConfig, JoyAction, get_joystick_buttons
+from app.models.ui_action import ActionSelectionDialog
+from app.utils.logger import setup_logging
 
 # Additional imports for your specific functions
-from models.actions import Action, get_all_defined_game_actions, get_all_subcategories_actions
-from models.configmap import (
+from app.models.actions import Action, get_all_defined_game_actions, get_all_subcategories_actions
+from app.models.configmap import (
     ExportedActionMapsFile, ActionMap, Rebind, get_action_maps_object
 )
-from globals import APP_PATH, get_installation
+from app.globals import APP_PATH, get_installation
 
 # Set up logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
-icon_path = APP_PATH / "images/app_icon.png" 
-left_image_path = APP_PATH / "images/vkb_left.png"
-right_image_path = APP_PATH / "images/vkb_right.png"
+icon_path = APP_PATH / "data/images/app_icon.png" 
+left_image_path = APP_PATH / "data/images/vkb_left.png"
+right_image_path = APP_PATH / "data/images/vkb_right.png"
 
-actions: Dict[str, List[str]] = get_all_subcategories_actions()
+cat_subcat_actions = get_all_subcategories_actions()
 all_default_actions: Dict[str, Action] = get_all_defined_game_actions()
 joystick_buttons = get_joystick_buttons()
 
@@ -429,10 +429,12 @@ class ControlMapperApp(QMainWindow):
             QMessageBox.warning(self, "Error", "No button selected.")
             return
 
-        dialog = ActionSelectionDialog(actions, self)
+        dialog = ActionSelectionDialog(cat_subcat_actions, self)
         if dialog.exec():
             selected_action_name: str = dialog.selected_action
+            #selected_action_key: str = dialog.selected_action
             action: Optional[Action] = all_default_actions.get(selected_action_name)
+            
             if action:
                 hold: bool = self.hold_enabled
                 multitap: bool = self.multitap_enabled

@@ -9,16 +9,12 @@ from app.localization import LocalizationFile
 
 from pydantic import BaseModel, Field, field_validator
 
-
-
 SC = "LIVE"
 SC_VERSION = "sc-alpha-3.24.2-9381373"
 sc_actionmaps_path = APP_PATH / 'data' / 'LIVE' /SC_VERSION / f"actionmap.json"
 
-
 localization_file_path = APP_PATH / 'data' / 'Localization' / 'english'/ 'global.ini'
 localization_file = LocalizationFile.from_file(localization_file_path)
-
 
 actionmaps = json.loads(sc_actionmaps_path.read_text())
 class Input(BaseModel):
@@ -28,7 +24,6 @@ class InputData(BaseModel):
     inputdata: Input | List[Input] | None = None 
     activationmode: str | None = Field(None, alias='@activationMode')
     input: str = Field(None, alias='@input')
-
 
 class JoyInputValue(BaseModel):
 
@@ -69,8 +64,6 @@ class Action(BaseModel):
         return value
 
 
-
-
 def get_all_defined_game_actions() -> Dict[str, Action]:
     possible_actions: List[Action]= []
 
@@ -89,7 +82,6 @@ def get_all_subcategories_actions() -> Dict[str, Any]:
             subcat_actions[sub_category] = actions
     return subcat_actions
     
-
 
 if __name__ == "__main__":
     x= get_all_defined_game_actions()

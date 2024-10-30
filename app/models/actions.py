@@ -1,14 +1,9 @@
 
 import json
-from pathlib import Path
 from typing import Any, Dict, List
-from rich import inspect
-
-from globals import APP_PATH
-from localization import LocalizationFile
-
+from app.globals import APP_PATH
+from app.localization import LocalizationFile
 from pydantic import BaseModel, Field, field_validator
-
 
 
 SC = "LIVE"
@@ -20,7 +15,6 @@ localization_file_path = APP_PATH / 'data' / 'Localization' / 'english'/ 'global
 localization_file = LocalizationFile.from_file(localization_file_path)
 
 
-actionmaps = json.loads(sc_actionmaps_path.read_text())
 class Input(BaseModel):
      input: str = Field(..., alias='@input')
 
@@ -69,24 +63,26 @@ class Action(BaseModel):
         return value
 
 
-
-
 def get_all_defined_game_actions() -> Dict[str, Action]:
+    actionmaps: Dict[str, Dict[str, Dict[str, str]]] = json.loads(sc_actionmaps_path.read_text())
     possible_actions: List[Action]= []
 
     for main_category, sub_categories in actionmaps.items():
         for sub_category, actions in sub_categories.items():
             for action_label, action in actions.items():
-                action = Action(name=action_label, main_category=main_category, sub_category=sub_category,**action,)
+                action = Action(name=action_label, main_category=main_category, sub_category=sub_category,**action)
                 possible_actions.append(action)
     return {action.name: action for action in possible_actions}
 
 
-def get_all_subcategories_actions() -> Dict[str, Any]:
-    subcat_actions= {}
+def get_all_subcategories_actions() -> Dict[str, Dict[str, Action]]:
+    actionmaps: Dict[str, Dict[str, Dict[str, str]]] = json.loads(sc_actionmaps_path.read_text())
+    subcat_actions: Dict[str, Dict[str, Action]]= {}
     for main_category, sub_categories in actionmaps.items():
         for sub_category, actions in sub_categories.items():
-            subcat_actions[sub_category] = actions
+            subcat_actions[sub_category] = {}
+            for action_label, action in actions.items():
+                subcat_actions[sub_category][action_label] = Action(name=action_label, main_category=main_category, sub_category=sub_category,**action)
     return subcat_actions
     
 

@@ -3,9 +3,11 @@ import os
 from pathlib import Path
 from typing import List, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 InstallationTypes = 'PTU', 'LIVE'
+
+SC_FOLDER = "F:/Star Citizen/StarCitizen"
 
 class StarCitizenInstallation(BaseModel):
     path: str
@@ -13,7 +15,7 @@ class StarCitizenInstallation(BaseModel):
     exported_control_maps:  List[str]
     type: Literal['PTU', 'LIVE']
 
-SC_FOLDER = "F:/Star Citizen/StarCitizen"
+
 
 APP_PATH = Path(__file__).parent
 

@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['ui.py'],
+    ['app/ui.py'],
     pathex=[],
     binaries=[],
-    datas=[("images","images")],
+    datas=[("app/data","data")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -21,7 +21,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='ui',
+    name='ScVkbConf',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -40,5 +40,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='ui',
+    name='ScVkbConf',
 )

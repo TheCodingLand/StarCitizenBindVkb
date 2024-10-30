@@ -20,7 +20,7 @@ class Rebind(BaseModel):
     model_config = ConfigDict(extra='allow', populate_by_name=True)
     # {'@input': 'js2_button25'}
     input: str = Field(..., alias="@input")
-    multitap: Optional[int] = Field(default=None, alias="multiTap")
+    multitap: Optional[int] = Field(default=None, alias="@multiTap")
 
 
 class Action(BaseModel):
@@ -66,8 +66,6 @@ class ActionProfile(BaseModel):
     options: List[Option] = Field(..., alias="options")
     modifiers: Any = Field(..., alias="modifiers")
     actionmap: List[ActionMap] = Field(..., alias="actionmap")
-    
-
 
 class ExportedActionMapsFile(BaseModel):
     version: int = Field(..., alias="@version")
@@ -79,8 +77,6 @@ class ExportedActionMapsFile(BaseModel):
     modifiers: Any = Field(..., alias="modifiers")
     actionmap: List[ActionMap] = Field(...)
 
-    
-    
 class ActionMapsFile(BaseModel):
     action_profiles: List[ActionProfile] = Field(..., alias="ActionProfiles")
 
@@ -92,10 +88,7 @@ def get_action_maps_file(source_file: str) -> Dict[str, Any]:
         return parse(f.read(), force_list=True)['ActionMaps'][0]
     
  
-
-class JoystickBind(BaseModel):
-    
-    
+class JoystickBind(BaseModel):   
     axis_or_button: str
     modifier_str: Optional[str] = Field(default=None)
     modifier: Literal[None, "HOLD", "DOUBLE_TAP", "MODIFIER"]
