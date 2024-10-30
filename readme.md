@@ -1,5 +1,7 @@
 # StarCitizen Bind VKB
 
+![logo](images/app_icon.png)
+
 ## Work in Progress
 
 This project is currently a work in progress and is not yet useful. The goal of this project is to provide a tool for users with VKB joysticks to quickly view, save, edit, and reapply their various control mappings exported from Star Citizen without needing to enter the game.

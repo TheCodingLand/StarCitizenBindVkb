@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
-
+from PyQt6.QtGui import QPixmap, QIcon
 from models import configmap
 from models.joystick import JoystickConfig, JoyAction, get_joystick_buttons
 from models.ui_action import ActionSelectionDialog
@@ -29,6 +29,7 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 current_path = Path(__file__).parent
+icon_path = current_path / "images/app_icon.png" 
 left_image_path = current_path / "images/vkb_left.png"
 right_image_path = current_path / "images/vkb_right.png"
 
@@ -47,6 +48,8 @@ class ControlMapperApp(QMainWindow):
         super().__init__()
         self.setWindowTitle("VKB Joystick Mapper")
 
+        self.setWindowIcon(QIcon(str(icon_path)))
+        self.setWindowIconText("VKB Joystick Mapper")
         # Adjust the main window size to accommodate the action panel
         self.setGeometry(100, 100, 1950 + 400, 938)  # Increased width by 400 for the panel
 
