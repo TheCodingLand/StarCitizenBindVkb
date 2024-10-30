@@ -12,10 +12,10 @@ current_path= Path(__file__).parent
 
 SC = "LIVE"
 SC_VERSION = "sc-alpha-3.24.2-9381373"
-sc_actionmaps_path = current_path / 'data' / 'LIVE' /SC_VERSION / f"actionmap.json"
+sc_actionmaps_path = current_path.parent / 'data' / 'LIVE' /SC_VERSION / f"actionmap.json"
 actionmaps = json.loads(sc_actionmaps_path.read_text())
 
-localization_file_path = current_path / 'data' / 'Localization' / 'english'/ 'global.ini'
+localization_file_path = current_path.parent / 'data' / 'Localization' / 'english'/ 'global.ini'
 localization_file = LocalizationFile.from_file(localization_file_path)
 
 
@@ -96,4 +96,3 @@ if __name__ == "__main__":
         if action.joystick and action.joystick not in [' ', '',None]:
             print (action.name)
             print(action.joystick)
-            

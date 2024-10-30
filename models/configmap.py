@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Literal, Optional, TypeVar
 from xmltodict import parse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from actions import get_all_defined_game_actions
+from models.actions import get_all_defined_game_actions
 
 #{'ActionProfiles': {'@version': '1', '@optionsVersion': '2', '@rebindVersion': '2', '@profileName': 'default', 'deviceoptions': {...}, 'options': [...], 'modifiers': None, 'actionmap': [...]}}
 
@@ -22,12 +22,10 @@ class Rebind(BaseModel):
     input: str = Field(..., alias="@input")
     multitap: Optional[int] = Field(default=None, alias="multiTap")
 
-    
-    
 
 class Action(BaseModel):
     name: str = Field(..., alias="@name")
-    rebinding: Rebind | List[Rebind] = Field(..., alias="rebind")
+    rebinding: List[Rebind] = Field(..., alias="rebind")
 
 TItem = TypeVar("TItem")
 class ActionMap(BaseModel):

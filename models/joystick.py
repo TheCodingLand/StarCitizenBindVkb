@@ -29,7 +29,7 @@ class JoyAction(BaseModel):
         return f"{self.name}-{self.modifier}-{self.multitap}-{self.hold}"
     
 
-class Joystick(BaseModel):
+class JoystickConfig(BaseModel):
     side: Literal["left", "right"] # left or right joystick
     configured_actions: Dict[str, JoyAction] = Field(...)
 
@@ -52,7 +52,7 @@ class Joystick(BaseModel):
         """Clear all mappings."""
         self.configured_actions = {}
 
-    def get_all_actions_for_button(self, button_name: str, modifier: bool, multitap: bool, hold: bool = False) -> Dict[str, JoyAction]:
+    def get_actions_for_button(self, button_name: str, modifier: bool, multitap: bool, hold: bool = False) -> Dict[str, JoyAction]:
         return {key: action for key, action in self.configured_actions.items() if action.button.name == button_name and action.multitap == multitap and action.modifier == modifier and action.hold == hold}
         
 

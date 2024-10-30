@@ -37,6 +37,17 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+
+    - name: Build coverage file
+      run: |
+        pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=app tests/ | tee pytest-coverage.txt
+
+    - name: Pytest coverage comment
+      uses: MishaKav/pytest-coverage-comment@main
+      with:
+        pytest-coverage-path: ./pytest-coverage.txt
+        junitxml-path: ./pytest.xml
+
   pyinstaller-build:
     runs-on: windows-latest
     steps:
@@ -48,3 +59,4 @@ jobs:
           requirements: 'requirements.txt'
           upload_exe_with_name: ''
           options: --onefile
+  

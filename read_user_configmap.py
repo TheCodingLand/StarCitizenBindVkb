@@ -1,5 +1,5 @@
 import json
-from configmap import get_action_maps_file
+from models.configmap import get_action_maps_file
 from globals import get_installation
 
 from rich import inspect
