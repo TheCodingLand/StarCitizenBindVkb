@@ -1,3 +1,4 @@
 pydantic
 pyqt6
 xmltodict
+rich
