@@ -3,19 +3,21 @@ from pathlib import Path
 import sys
 import json
 import logging
-from typing import Dict, Optional, List
+from typing import Any, Dict, Optional, List, Union
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QMessageBox, QComboBox,
-    QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView
+    QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog
 )
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
 from PyQt6.QtGui import QPixmap, QIcon
 from PyQt6 import QtGui
+from app.config import Config
 from app.models import configmap
 from app.models.joystick import JoystickConfig, JoyAction, get_joystick_buttons
+from app.models.settings_dialog import SettingsDialog
 from app.models.ui_action import ActionSelectionDialog
 from app.utils.logger import setup_logging
 
@@ -48,6 +50,7 @@ class ControlMapperApp(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
+        self.config = Config.get_config()
         self.setWindowTitle("VKB Joystick Mapper")
 
         self.setWindowIcon(QIcon(str(icon_path)))
@@ -55,7 +58,7 @@ class ControlMapperApp(QMainWindow):
         # Adjust the main window size to accommodate the action panel
         self.setGeometry(100, 100, 1950 + 400, 938)  # Increased width by 400 for the panel
 
-        # Create central widget and main layout
+        # Create central widget and main layout 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
         self.main_layout = QHBoxLayout(self.central_widget)
@@ -83,17 +86,27 @@ class ControlMapperApp(QMainWindow):
         self.modifier_enabled: bool = False
         self.multitap_enabled: bool = False
         self.hold_enabled: bool = False
-        self.unsupported_actions: Dict[str, configmap.Action] = {}
+        self.unsupported_actions: List[Dict[str, Any]] = []
+        self.install_type: str = self.config.install_type
+
+        self.previous_selected_button: Optional[QPushButton] = None
         self.button_refs: Dict[str, QPushButton] = {}
         self.joystick_sides: Dict[int, str] = {}
         self.selected_button_label: Optional[str] = None  # Currently selected button label
-
+        
         self.init_ui()
+        self.init_install_type()
 
-        self.install = get_installation("LIVE")
-        assert self.install is not None
-        self.exported_control_maps: List[str] = self.install.exported_control_maps
-        self.control_map: Optional[ExportedActionMapsFile] = None
+    def init_install_type(self) -> None:
+        self.install = get_installation(self.config.installation_path, self.config.install_type)
+        if self.install is None:
+            # highlight the settings button
+            self.settings_button.setStyleSheet("background-color: #FF0000;")
+            self.exported_control_maps = []
+        else:
+            self.settings_button.setStyleSheet("background-color: rgba(150, 150, 150, 255);")
+            self.exported_control_maps: List[str] = self.install.exported_control_maps
+        self.control_map = None
         self.populate_control_maps_combo_box()
 
     def init_ui(self) -> None:
@@ -101,6 +114,19 @@ class ControlMapperApp(QMainWindow):
         self.create_joystick_image()
         self.create_joystick_buttons()
         self.create_action_panel()
+
+    
+            
+    def open_settings_dialog(self) -> None:
+        dialog = SettingsDialog(self.config, self)
+        if dialog.exec():
+            # Reload the config
+            self.config = Config.get_config()
+            self.install_type = self.config.install_type
+            # Reinitialize the installation
+            self.init_install_type()
+            # Update any other components that depend on the config
+            self.update_joystick_buttons()
 
     def create_controls(self) -> None:
         # Controls at the top of the left widget
@@ -132,6 +158,11 @@ class ControlMapperApp(QMainWindow):
         self.control_maps_combo_box.installEventFilter(self)
         controls_layout.addWidget(self.control_maps_combo_box)
 
+        # Add the Settings button
+        self.settings_button: QPushButton = QPushButton("Settings", controls_widget)
+        self.settings_button.clicked.connect(self.open_settings_dialog)
+        controls_layout.addWidget(self.settings_button)
+
         self.left_layout.addWidget(controls_widget)
 
     def create_joystick_image(self) -> None:
@@ -143,8 +174,8 @@ class ControlMapperApp(QMainWindow):
         self.left_layout.addWidget(self.background_label)
 
     def create_action_panel(self) -> None:
-    # Create a panel on the right side (already part of main_layout)
-        panel_width = 400
+        # Create a panel on the right side (already part of main_layout)
+        panel_width = 560
         self.action_panel.setMinimumWidth(panel_width)
         self.action_panel.setMaximumWidth(panel_width)
 
@@ -159,6 +190,7 @@ class ControlMapperApp(QMainWindow):
         self.actions_table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.actions_table_widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.actions_table_widget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.actions_table_widget.setFixedHeight(400)
         self.action_panel_layout.addWidget(self.actions_table_widget)
 
         # Buttons to add or remove actions
@@ -175,6 +207,21 @@ class ControlMapperApp(QMainWindow):
 
         # Spacer to push the buttons to the top
         self.action_panel_layout.addStretch()
+
+        # **Add Unsupported Actions Section**
+        self.unsupported_actions_label = QLabel("Unsupported Actions:", self.action_panel)
+        self.action_panel_layout.addWidget(self.unsupported_actions_label)
+
+        # Create a QTableWidget to display unsupported actions
+        self.unsupported_actions_table_widget: QTableWidget = QTableWidget(self.action_panel)
+        self.unsupported_actions_table_widget.setColumnCount(4)
+        self.unsupported_actions_table_widget.setHorizontalHeaderLabels(['Action Name', 'Button', 'Modifier', 'Side'])
+        self.unsupported_actions_table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.unsupported_actions_table_widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.unsupported_actions_table_widget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.unsupported_actions_table_widget.setFixedHeight(400)
+        self.action_panel_layout.addWidget(self.unsupported_actions_table_widget)
+
 
     def toggle_modifier(self) -> None:
         self.modifier_enabled = not self.modifier_enabled
@@ -199,7 +246,19 @@ class ControlMapperApp(QMainWindow):
 
     def select_control_map(self, index: int) -> None:
         control_map_file: str = self.exported_control_maps[index]
-        self.control_map = get_action_maps_object(control_map_file)
+        try:
+            self.control_map = get_action_maps_object(control_map_file)
+        except Exception as e:
+            logger.exception(f"Error loading control map: {e}")
+            self.control_map = None
+            # Display a message to the user
+            QMessageBox.warning(
+                self,
+                "Error Loading Control Map",
+                "An error occurred while loading this control map."
+            )
+            return
+
         self.joystick_sides: Dict[int, str] = self.get_joystick_sides(self.control_map)
         self.load_joystick_mappings()
         self.update_joystick_buttons()
@@ -211,13 +270,43 @@ class ControlMapperApp(QMainWindow):
         for option in control_map.options:
             if option.product is None:
                 continue
-            if "VKBsim Gladiator EVO" in option.product:
+            if self.config.joystick_left_name_filter in option.product:
                 product_name: str = option.product.split("{")[0]
-                side: str = "left" if "L" in product_name else "right"
+                side: str = "left" if self.config.joystick_side_identifier_left in product_name else "right"
                 instance_number_mapping[option.instance] = side
         return instance_number_mapping
 
+
+    def update_unsupported_actions_table(self) -> None:
+        # Clear the existing table
+        self.unsupported_actions_table_widget.setRowCount(0)
+
+        # Populate the table widget
+        for action_info in self.unsupported_actions:
+            row_position = self.unsupported_actions_table_widget.rowCount()
+            self.unsupported_actions_table_widget.insertRow(row_position)
+
+            # Create table items
+            action_name_item = QTableWidgetItem(action_info['action_name'])
+            button_item = QTableWidgetItem(action_info['button'])
+            modifier_item = QTableWidgetItem('Yes' if action_info['modifier'] else 'No')
+            side_item = QTableWidgetItem(action_info['side'])
+
+            # Optionally, apply styling based on modifier
+            if action_info['modifier']:
+                modifier_item.setBackground(QtGui.QColor('lightgreen'))
+                modifier_item.setForeground(QtGui.QColor('black'))
+
+            # Add items to the table
+            self.unsupported_actions_table_widget.setItem(row_position, 0, action_name_item)
+            self.unsupported_actions_table_widget.setItem(row_position, 1, button_item)
+            self.unsupported_actions_table_widget.setItem(row_position, 2, modifier_item)
+            self.unsupported_actions_table_widget.setItem(row_position, 3, side_item)
+
+        #Adjust column widths
+        self.unsupported_actions_table_widget.resizeColumnsToContents()
     def load_joystick_mappings(self) -> None:
+        self.unsupported_actions.clear()
         self.left_joystick_config.clear_mappings()
         self.right_joystick_config.clear_mappings()
         if self.control_map is None:
@@ -226,6 +315,8 @@ class ControlMapperApp(QMainWindow):
             self.process_action_map(actionmap)
         # After processing the control map, apply default bindings
         self.apply_default_bindings()
+
+        self.update_unsupported_actions_table()
 
     def process_action_map(self, actionmap: ActionMap) -> None:
         for action in actionmap.action:
@@ -260,8 +351,15 @@ class ControlMapperApp(QMainWindow):
                 logger.warning(
                     f"Action {action.name} not found in default actions."
                 )
-                self.unsupported_actions[action.name] = action
+                unsupported_action_info : Dict[str, Union[str, bool]]= {
+                    'action_name': action.name,
+                    'button': js_button,
+                    'modifier': modifier,
+                    'side': side
+                }
+                self.unsupported_actions.append(unsupported_action_info)
                 return
+                
             hold: bool = default_action_conf.activationmode == "delayed_press"
             main_category: str = default_action_conf.main_category
             sub_category: str = default_action_conf.sub_category
@@ -409,6 +507,14 @@ class ControlMapperApp(QMainWindow):
         """
         Display the action panel with all mappings for the selected button.
         """
+        if self.previous_selected_button and self.previous_selected_button != button:
+            self.update_button_label(self.selected_button_label)
+            self.apply_button_style(self.previous_selected_button, action=self.has_action(self.selected_button_label))
+        
+         # Highlight the currently selected button
+        self.apply_button_style(button, action=False, selected=True)
+
+        self.previous_selected_button = button
         self.selected_button_label = label
         self.selected_button_label_widget.setText(f"Selected Button: {label}")
 
@@ -430,23 +536,15 @@ class ControlMapperApp(QMainWindow):
             hold_item = QTableWidgetItem()
 
             # Use checkmarks or color codes to represent True/False
-            if joy_action.modifier:
-                modifier_item.setText("✓")
+            modifier_item.setText("")
+            multitap_item.setText("")
+            hold_item.setText("") 
+            if joy_action.modifier:   
                 modifier_item.setBackground(QtGui.QColor('lightgreen'))
-            else:
-                modifier_item.setText("✗")
-
             if joy_action.multitap:
-                multitap_item.setText("✓")
                 multitap_item.setBackground(QtGui.QColor('lightblue'))
-            else:
-                multitap_item.setText("✗")
-
             if joy_action.hold:
-                hold_item.setText("✓")
-                hold_item.setBackground(QtGui.QColor('lightcoral'))
-            else:
-                hold_item.setText("✗")
+                hold_item.setBackground(QtGui.QColor('lightcoral'))               
 
             # Store the key in the first item's data
             action_name_item.setData(Qt.ItemDataRole.UserRole, key)
@@ -515,27 +613,48 @@ class ControlMapperApp(QMainWindow):
 
         self.update_button_label(self.selected_button_label)
 
-    def update_button_label(self, label: str) -> None:
+    def has_action(self, label: str) -> bool:
         actions_dict = self.current_config.get_actions_for_button(
             label,
             self.modifier_enabled,
             multitap=self.multitap_enabled,
             hold=self.hold_enabled,
         )
+        return bool(actions_dict)
+
+    def update_button_label(self, label: str) -> None:
         button: QPushButton = self.button_refs[label]
-        if actions_dict:
+        has_action = self.has_action(label)
+        if has_action:
+            actions_dict = self.current_config.get_actions_for_button(
+                label,
+                self.modifier_enabled,
+                multitap=self.multitap_enabled,
+                hold=self.hold_enabled,
+            )
             button.setText(
                 "\n".join(action.name for action in actions_dict.values())
             )
-            self.apply_button_style(button, True)
         else:
             button.setText(label)
-            self.apply_button_style(button, False)
+        self.apply_button_style(button, action=has_action)
 
     def apply_button_style(
-        self, button: QPushButton, action: bool
+        self, button: QPushButton, action: bool, selected: bool = False
     ) -> None:
-        if action:
+        if selected:
+            # Apply neon purple highlight
+            
+            button.setStyleSheet(
+                """
+                QPushButton {
+                    background-color: #9B30FF;
+                    color: #FFFFFF;
+                    border: 2px solid #BF3EFF;
+                }
+                """
+            )
+        elif action:
             button.setStyleSheet(
                 """
                 QPushButton {

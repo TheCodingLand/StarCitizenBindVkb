@@ -1,10 +1,12 @@
 
 
 from typing import Literal, Dict
-
+import xml.etree.ElementTree as ET
 from pydantic import BaseModel, Field
 
+from app.config import Config
 
+config = Config.get_config()
 
 class JoyStickButton(BaseModel):
     name: str  # example: button 3
@@ -27,6 +29,34 @@ class JoyAction(BaseModel):
     def key(self) -> str:
         """Return a unique key for the action."""
         return f"{self.name}-{self.modifier}-{self.multitap}-{self.hold}"
+    
+    def to_xml(self) -> str:
+        """
+        Generate the XML representation of the JoyAction.
+        """
+        # Create the root element <action>
+        action_element = ET.Element('action', attrib={'name': self.name})
+
+        # Prepare the input attribute
+        input_value = self.input
+        if self.modifier:
+            # Split input to get the 'jsN' part and the button part
+            js_part, button_part = self.input.split('_', 1)
+            input_value = f"{js_part}_{config.modifier_key}+{button_part}"
+
+        # Prepare attributes for <rebind>
+        rebind_attrib = {'input': input_value}
+
+        if self.multitap:
+            rebind_attrib['multiTap'] = '2'  # '2' indicates the number of taps
+
+        # Create the <rebind> element
+        ET.SubElement(action_element, 'rebind', attrib=rebind_attrib)
+
+        # Convert the ElementTree to a string
+        xml_str = ET.tostring(action_element, encoding='unicode')
+
+        return xml_str
     
 
 class JoystickConfig(BaseModel):

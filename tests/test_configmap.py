@@ -9,8 +9,8 @@ from app.models.configmap import ActionMapsFile, get_action_maps_file, Action
 
 SC = "LIVE"
 SC_VERSION = "sc-alpha-3.24.2-9381373"
-sc_actionmaps_path = Path(__file__).parent.parent / 'data' / SC_VERSION / f"actionmap.json"
-data_folder= Path(__file__).parent.parent  / "data"
+sc_actionmaps_path = Path(__file__).parent.parent / 'app'/  'data' / SC_VERSION / f'actionmap.json'
+data_folder= Path(__file__).parent.parent  / 'app' / 'data'
 def test_actionmap():
         
     possible_actions = get_all_defined_game_actions()

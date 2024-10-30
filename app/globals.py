@@ -16,12 +16,11 @@ class StarCitizenInstallation(BaseModel):
     type: Literal['PTU', 'LIVE']
 
 
-
 APP_PATH = Path(__file__).parent
 
-def get_installation(installation_type: Literal["PTU", "LIVE"]) -> StarCitizenInstallation | None:
-    installation_path = os.path.join(SC_FOLDER, installation_type)
-    if os.path.exists(installation_path) and os.path.isfile(f"{installation_path}/Data.p4k"):
+def get_installation(sc_folder: str, installation_type: Literal["PTU", "LIVE"]) -> StarCitizenInstallation | None:
+    installation_path = os.path.join(sc_folder, installation_type)
+    if os.path.exists(installation_path) and is_valid_star_citizen_installation(Path(installation_path)):
         exported_control_maps = user_exported_control_mappings(installation_path)
         return StarCitizenInstallation(path=installation_path, version=os.path.basename(installation_path), exported_control_maps=exported_control_maps, type=installation_type)
 
@@ -38,3 +37,10 @@ def user_exported_control_mappings(installation: str) -> List[str]:
     return paths
     
         
+def is_valid_star_citizen_installation(path: Path) -> bool:
+    # Implement logic to verify if the directory is a valid installation
+    # For example, check for specific files or folders
+    
+    if not (path / "Data.p4k").exists():
+        return False
+    return True

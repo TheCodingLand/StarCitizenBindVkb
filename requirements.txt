@@ -2,3 +2,4 @@ pydantic
 pyqt6
 xmltodict
 rich
+pydantic-settings
