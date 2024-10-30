@@ -11,7 +11,10 @@ on:
 
 permissions:
   contents: read
-
+env:
+  # Display must be available globally for linux to know where xvfb is
+  DISPLAY: ":99.0"
+  QT_SELECT: "qt6"
 jobs:
   build:
 
