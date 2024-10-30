@@ -6,7 +6,7 @@ This project is currently a work in progress and is not yet useful. The goal of 
 
 ### Demo
 
-![Demo](path/to/your/demo.gif)
+![Demo](wip.gif)
 
 ### Features
 
