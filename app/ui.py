@@ -9,10 +9,11 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QMessageBox, QComboBox,
     QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView
 )
+from PyQt6 import QtWidgets
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
 from PyQt6.QtGui import QPixmap, QIcon
-
+from PyQt6 import QtGui
 from app.models import configmap
 from app.models.joystick import JoystickConfig, JoyAction, get_joystick_buttons
 from app.models.ui_action import ActionSelectionDialog
@@ -142,7 +143,7 @@ class ControlMapperApp(QMainWindow):
         self.left_layout.addWidget(self.background_label)
 
     def create_action_panel(self) -> None:
-        # Create a panel on the right side (already part of main_layout)
+    # Create a panel on the right side (already part of main_layout)
         panel_width = 400
         self.action_panel.setMinimumWidth(panel_width)
         self.action_panel.setMaximumWidth(panel_width)
@@ -151,9 +152,14 @@ class ControlMapperApp(QMainWindow):
         self.selected_button_label_widget: QLabel = QLabel("Selected Button: None", self.action_panel)
         self.action_panel_layout.addWidget(self.selected_button_label_widget)
 
-        # List widget to display actions
-        self.actions_list_widget: QListWidget = QListWidget(self.action_panel)
-        self.action_panel_layout.addWidget(self.actions_list_widget)
+        # Create a QTableWidget to display actions
+        self.actions_table_widget: QTableWidget = QTableWidget(self.action_panel)
+        self.actions_table_widget.setColumnCount(4)
+        self.actions_table_widget.setHorizontalHeaderLabels(['Action Name', 'Modifier', 'Multitap', 'Hold'])
+        self.actions_table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.actions_table_widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.actions_table_widget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.action_panel_layout.addWidget(self.actions_table_widget)
 
         # Buttons to add or remove actions
         buttons_layout = QHBoxLayout()
@@ -399,27 +405,60 @@ class ControlMapperApp(QMainWindow):
         button.show()
         self.button_refs[label] = button
 
-    def show_action_panel(
-        self, button: QPushButton, label: str
-    ) -> None:
+    def show_action_panel(self, button: QPushButton, label: str) -> None:
         """
         Display the action panel with all mappings for the selected button.
         """
         self.selected_button_label = label
         self.selected_button_label_widget.setText(f"Selected Button: {label}")
 
-        # Clear the existing list
-        self.actions_list_widget.clear()
+        # Clear the existing table
+        self.actions_table_widget.setRowCount(0)
 
         # Get all actions for the button without filtering
         all_actions = self.current_config.get_all_actions_for_button_no_filter(label)
 
-        # Populate the list widget
+        # Populate the table widget
         for key, joy_action in all_actions.items():
-            item_text = f"{joy_action.name} | Modifier: {joy_action.modifier} | Multitap: {joy_action.multitap} | Hold: {joy_action.hold}"
-            item = QListWidgetItem(item_text)
-            item.setData(Qt.ItemDataRole.UserRole, key)  # Store the key for reference
-            self.actions_list_widget.addItem(item)
+            row_position = self.actions_table_widget.rowCount()
+            self.actions_table_widget.insertRow(row_position)
+
+            # Create table items
+            action_name_item = QTableWidgetItem(joy_action.name)
+            modifier_item = QTableWidgetItem()
+            multitap_item = QTableWidgetItem()
+            hold_item = QTableWidgetItem()
+
+            # Use checkmarks or color codes to represent True/False
+            if joy_action.modifier:
+                modifier_item.setText("✓")
+                modifier_item.setBackground(QtGui.QColor('lightgreen'))
+            else:
+                modifier_item.setText("✗")
+
+            if joy_action.multitap:
+                multitap_item.setText("✓")
+                multitap_item.setBackground(QtGui.QColor('lightblue'))
+            else:
+                multitap_item.setText("✗")
+
+            if joy_action.hold:
+                hold_item.setText("✓")
+                hold_item.setBackground(QtGui.QColor('lightcoral'))
+            else:
+                hold_item.setText("✗")
+
+            # Store the key in the first item's data
+            action_name_item.setData(Qt.ItemDataRole.UserRole, key)
+
+            # Add items to the table
+            self.actions_table_widget.setItem(row_position, 0, action_name_item)
+            self.actions_table_widget.setItem(row_position, 1, modifier_item)
+            self.actions_table_widget.setItem(row_position, 2, multitap_item)
+            self.actions_table_widget.setItem(row_position, 3, hold_item)
+
+        # Adjust column widths
+        self.actions_table_widget.resizeColumnsToContents()
 
     def add_action_to_button(self) -> None:
         """
@@ -459,15 +498,20 @@ class ControlMapperApp(QMainWindow):
         """
         Remove the selected action from the button's mappings.
         """
-        selected_items = self.actions_list_widget.selectedItems()
-        if not selected_items:
+        selected_ranges = self.actions_table_widget.selectedRanges()
+        if not selected_ranges:
             QMessageBox.warning(self, "Error", "No action selected.")
             return
 
-        for item in selected_items:
-            key = item.data(Qt.ItemDataRole.UserRole)
-            self.current_config.remove_mapping_by_key(key)
-            self.actions_list_widget.takeItem(self.actions_list_widget.row(item))
+        for selected_range in selected_ranges:
+            for row in range(selected_range.topRow(), selected_range.bottomRow() + 1):
+                key_item = self.actions_table_widget.item(row, 0)  # Key is stored in the first column
+                if key_item:
+                    key = key_item.data(Qt.ItemDataRole.UserRole)
+                    self.current_config.remove_mapping_by_key(key)
+            # Remove the rows in reverse order to prevent shifting issues
+            for row in reversed(range(selected_range.topRow(), selected_range.bottomRow() + 1)):
+                self.actions_table_widget.removeRow(row)
 
         self.update_button_label(self.selected_button_label)
 
