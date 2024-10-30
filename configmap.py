@@ -17,9 +17,11 @@ class Joystick(BaseModel):
 
 
 class Rebind(BaseModel):
+    model_config = ConfigDict(extra='allow', populate_by_name=True)
     # {'@input': 'js2_button25'}
     input: str = Field(..., alias="@input")
     multitap: Optional[int] = Field(default=None, alias="multiTap")
+
     
     
 
@@ -68,26 +70,6 @@ class ActionProfile(BaseModel):
     actionmap: List[ActionMap] = Field(..., alias="actionmap")
     
 
-    
-    @field_validator('deviceoptions', mode='before')
-    @classmethod
-    def always_list_device_options(cls, item: TItem | List[TItem]) -> List[TItem]:
-        if isinstance(item, list):
-            return item
-        return [item]
-    
-    @field_validator('options', mode='before')
-    @classmethod
-    def always_list_options(cls, item: TItem | List[TItem]) -> List[TItem]:
-        if isinstance(item, list):
-            return item
-        return [item]
-    @field_validator('actionmap', mode='before')
-    @classmethod
-    def always_list_actionmap(cls, item: TItem | List[TItem]) -> List[TItem]:
-        if isinstance(item, list):
-            return item
-        return [item]
 
 class ExportedActionMapsFile(BaseModel):
     version: int = Field(..., alias="@version")
@@ -99,34 +81,17 @@ class ExportedActionMapsFile(BaseModel):
     modifiers: Any = Field(..., alias="modifiers")
     actionmap: List[ActionMap] = Field(...)
 
-    @field_validator('deviceoptions', mode='before')
-    @classmethod
-    def always_list_device_options(cls, item: TItem | List[TItem]) -> List[TItem]:
-        if isinstance(item, list):
-            return item
-        return [item]
     
-    @field_validator('options', mode='before')
-    @classmethod
-    def always_list_options(cls, item: TItem | List[TItem]) -> List[TItem]:
-        if isinstance(item, list):
-            return item
-        return [item]
-    @field_validator('actionmap', mode='before')
-    @classmethod
-    def always_list_actionmap(cls, item: TItem | List[TItem]) -> List[TItem]:
-        if isinstance(item, list):
-            return item
-        return [item]
+    
 class ActionMapsFile(BaseModel):
-    action_profiles: ActionProfile = Field(..., alias="ActionProfiles")
+    action_profiles: List[ActionProfile] = Field(..., alias="ActionProfiles")
 
 data_folder = Path(__file__).parent / "data"
 action_maps_file_souce = data_folder / "actionmaps.xml"
 
 def get_action_maps_file(source_file: str) -> Dict[str, Any]:
     with open(source_file) as f:
-        return parse(f.read())['ActionMaps']
+        return parse(f.read(), force_list=True)['ActionMaps'][0]
     
  
 
@@ -173,10 +138,10 @@ if __name__ == "__main__":
     
     
     all_defined_game_actions = get_all_defined_game_actions()
-    x = get_action_maps_file()
-    name_action_mapping = { action.name: action for action in all_defined_game_actions}
+    x = get_action_maps_file(action_maps_file_souce)
+    name_action_mapping = { action.name: action for action in all_defined_game_actions.values()}
     x = ActionMapsFile(**x)
-    for option in x.action_profiles.actionmap:
+    for option in x.action_profiles[0].actionmap:
         for action in option.action:
 
             if action.name in name_action_mapping:

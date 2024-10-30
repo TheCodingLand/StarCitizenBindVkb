@@ -1,6 +1,6 @@
 
 
-from typing import List, Literal, Optional, Dict
+from typing import Literal, Dict
 
 from pydantic import BaseModel, Field
 
@@ -11,47 +11,52 @@ class JoyStickButton(BaseModel):
     sc_config_name: str # simplified name that sc uses like js1_2, where 2 is the button number 2
     coord_x_left: Dict[Literal["left", "right"],int] # x coordinate of the button on the left image
     coord_y_top: int # y coordinate of the button on the left image
-    visible: bool = True # whether the button is visible or not, will changed based on different modifiers
-    actions: List[str] = [] # the action that is mapped to the button
-    modifier: bool = False # the action that is mapped to the button when the modifier is enabled
+
+
+class JoyAction(BaseModel):
+    name: str
+    input: str
+    category: str
+    sub_category: str
+    modifier: bool = False
+    multitap: bool = False
+    hold: bool = False
+    button: JoyStickButton
+    
+    @property
+    def key(self) -> str:
+        """Return a unique key for the action."""
+        return f"{self.name}-{self.modifier}-{self.multitap}"
     
 
-
 class Joystick(BaseModel):
-    buttons: Dict[str, JoyStickButton] = Field(...)
     side: Literal["left", "right"] # left or right joystick
+    configured_actions: Dict[str, JoyAction] = Field(...)
 
-    def clear_mapping(self, label: str, modifier: bool = False) -> None:
+    def _create_configured_actions_hashmap(self) -> Dict[str, JoyAction]:
+        return { configured_action.key : configured_action for configured_action in self.configured_actions.values()}
+
+    def get_configured_button(self, button_name: str, multitap: bool = False, modifier: bool= False, hold: bool = False) -> JoyAction | None:
+        return self.configured_actions.get(f"{button_name}-{modifier}-{multitap}", None)
+           
+    def clear_mapping(self, button_name: str, multitap: bool = False, modifier: bool= False, hold: bool = False) -> None:
         """Clear the action mapping for a specific button."""
-        if modifier:
-            self.buttons[f"{label}_mod"].actions = []
-        else:
-            self.buttons[label].actions = []
+        key = f"{button_name}-{modifier}-{multitap}"
+        if key in self.configured_actions:
+            self.configured_actions.pop(key)
 
-    def set_mapping(self, label: str, action: str, modifier: bool = False) -> None:
-        """Set the action mapping for a specific button."""
-        
-        if modifier:
-            self.buttons[f"{label}_mod"].actions.append(action)
-        else:
-            self.buttons[label].actions.append(action)
-        
-        
-
-    def get_mapping(self, label: str, modifier: bool) -> List[str]:
-        """Get the action mapping for a specific button."""
-        if modifier:
-            return self.buttons[f"{label}_mod"].actions
-        return self.buttons[label].actions 
+    def set_mapping(self, joy_action: JoyAction) -> None:
+        self.configured_actions[joy_action.key] = joy_action
 
     def clear_mappings(self) -> None:
         """Clear all mappings."""
-        for mapping in self.buttons.values():
-            mapping.actions = []
+        self.configured_actions = {}
 
-    def __repr__(self) -> str:
-        return f"JoystickConfigModel(buttons={self.buttons})"
-    
+    def get_all_actions_for_button(self, button_name: str, modifier: bool, multitap: bool, hold: bool = False) -> Dict[str, JoyAction]:
+        return {key: action for key, action in self.configured_actions.items() if action.button.name == button_name and action.multitap == multitap and action.modifier == modifier}
+        
+
+
 def get_joystick_buttons() -> Dict[str, JoyStickButton]:
     buttons = [ 
         JoyStickButton(name="hat1_up", sc_config_name="hat1_up", coord_x_left={"left" :265, "right": 1565}, coord_y_top=52),
@@ -128,10 +133,8 @@ def get_joystick_buttons() -> Dict[str, JoyStickButton]:
 
     ]
     buttons_dict = {button.name: button.model_copy() for button in buttons}
-    modified_buttons_dict = {}
-    for button in buttons_dict.values():
-        modified_buttons_dict[f"{button.name}_mod"] = button.model_copy(update={"modifier": True, "visible": False})
-    buttons_dict.update(modified_buttons_dict)
+    
     return buttons_dict
+
 
 
