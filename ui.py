@@ -196,10 +196,8 @@ class ControlMapperApp(QMainWindow):
                             continue
                         side = self.joystick_sides[int(js_number)]
                         multitap = False if rebind.multitap is None else True
-                        if "hold" in action.name:
-                            hold = True
-                        else:
-                            hold = False
+                        default_action_conf = self.all_default_actions[action.name]
+                        hold = True if default_action_conf.activationmode == "delayed_press" else False
                         joy_action= JoyAction(name=action.name, input=rebind.input, multitap=multitap, category=actionmap.name, hold=hold, sub_category=action.name, modifier=modifier, button=self.joystick_buttons[js_button])
                         if side == "left":
                             self.left_joystick_config.set_mapping(joy_action)
@@ -226,7 +224,8 @@ class ControlMapperApp(QMainWindow):
                     js_button = action.joystick
                 if js_button not in self.joystick_buttons:
                     continue
-                hold=False if 'hold' not in action.name else True
+                hold = True if action.activationmode == "delayed_press" else False
+                
                         
                 configured_action = self.current_config.get_all_actions_for_button(action.name, modifier=modifier, multitap=False, hold=hold)
                 already_configured= False
@@ -316,10 +315,7 @@ class ControlMapperApp(QMainWindow):
             assert action is not None 
             assert action.main_category is not None 
             assert action.sub_category is not None
-            if "hold" in action.name:
-                hold = True
-            else:
-                hold = False
+            hold = True if action.activationmode == "delayed_press" else False
             joy_action = JoyAction(name=selected_item,input=label, multitap=self.multitap_enabled, hold=hold, category=action.main_category, sub_category=action.sub_category, modifier=self.modifier_enabled, button=self.joystick_buttons[label])
            
             self.current_config.set_mapping(joy_action)

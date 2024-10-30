@@ -26,7 +26,7 @@ class JoyAction(BaseModel):
     @property
     def key(self) -> str:
         """Return a unique key for the action."""
-        return f"{self.name}-{self.modifier}-{self.multitap}"
+        return f"{self.name}-{self.modifier}-{self.multitap}-{self.hold}"
     
 
 class Joystick(BaseModel):
@@ -37,11 +37,11 @@ class Joystick(BaseModel):
         return { configured_action.key : configured_action for configured_action in self.configured_actions.values()}
 
     def get_configured_button(self, button_name: str, multitap: bool = False, modifier: bool= False, hold: bool = False) -> JoyAction | None:
-        return self.configured_actions.get(f"{button_name}-{modifier}-{multitap}", None)
+        return self.configured_actions.get(f"{button_name}-{modifier}-{multitap}-{hold}", None)
            
     def clear_mapping(self, button_name: str, multitap: bool = False, modifier: bool= False, hold: bool = False) -> None:
         """Clear the action mapping for a specific button."""
-        key = f"{button_name}-{modifier}-{multitap}"
+        key = f"{button_name}-{modifier}-{multitap}-{hold}"
         if key in self.configured_actions:
             self.configured_actions.pop(key)
 
@@ -53,7 +53,7 @@ class Joystick(BaseModel):
         self.configured_actions = {}
 
     def get_all_actions_for_button(self, button_name: str, modifier: bool, multitap: bool, hold: bool = False) -> Dict[str, JoyAction]:
-        return {key: action for key, action in self.configured_actions.items() if action.button.name == button_name and action.multitap == multitap and action.modifier == modifier}
+        return {key: action for key, action in self.configured_actions.items() if action.button.name == button_name and action.multitap == multitap and action.modifier == modifier and action.hold == hold}
         
 
 
