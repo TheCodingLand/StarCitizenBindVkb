@@ -173,9 +173,11 @@ class ControlMapperApp(QMainWindow):
                         joy_command_input_string = rebind.input
                         
                         if "+" in rebind.input:
+                            
                             modifier = True
                             joy_modifier, js_button = rebind.input.split("+")
                             joy_command_input_string.replace("js", "")
+                            split_str_action = joy_command_input_string.split("_")
                             js_str = split_str_action[0]
                         else:
                             split_str_action = joy_command_input_string.split("_")
