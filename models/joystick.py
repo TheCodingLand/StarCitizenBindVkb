@@ -52,8 +52,14 @@ class JoystickConfig(BaseModel):
         """Clear all mappings."""
         self.configured_actions = {}
 
+    def remove_mapping_by_key(self, key: str) -> None:
+        """Remove a mapping by key."""
+        self.configured_actions.pop(key, None)
+
     def get_actions_for_button(self, button_name: str, modifier: bool, multitap: bool, hold: bool = False) -> Dict[str, JoyAction]:
         return {key: action for key, action in self.configured_actions.items() if action.button.name == button_name and action.multitap == multitap and action.modifier == modifier and action.hold == hold}
+    def get_all_actions_for_button_no_filter(self, button_name: str) -> Dict[str, JoyAction]:
+        return {key: action for key, action in self.configured_actions.items() if action.button.name == button_name }
         
 
 
