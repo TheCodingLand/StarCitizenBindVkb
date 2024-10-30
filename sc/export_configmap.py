@@ -54,13 +54,13 @@ def gen_actionmap(self: "Profile", language: Literal["fr", "en"] | None = None) 
     return m
 
 
-
-
-for version in ["PTU", "LIVE"]:
-    sc : StarCitizenType = StarCitizen(f'{sc_folder}/{version}')
-    profile = sc.default_profile
-    v_label: str  = sc.version_label
-    output_folder = f"{current_folder}/data/{version}/{v_label}"
-    os.makedirs(output_folder, exist_ok=True)    
-    with open(f"{output_folder}/actionmap.json", "w") as f:
-        f.write(json.dumps(gen_actionmap(profile), indent=4)) # type: ignore
+if __name__ == "__main__":
+    sc_folder = f"{current_folder}/data"
+    for version in ["PTU", "LIVE"]:
+        sc : StarCitizenType = StarCitizen(f'{sc_folder}/{version}')
+        profile = sc.default_profile
+        v_label: str  = sc.version_label
+        output_folder = f"{current_folder}/data/{version}/{v_label}"
+        os.makedirs(output_folder, exist_ok=True)    
+        with open(f"{output_folder}/actionmap.json", "w") as f:
+            f.write(json.dumps(gen_actionmap(profile), indent=4)) # type: ignore
