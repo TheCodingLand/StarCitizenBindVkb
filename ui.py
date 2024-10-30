@@ -55,7 +55,7 @@ class ControlMapperApp(QMainWindow):
         self.modifier_enabled = False
         self.multitap_enabled = False
         self.hold_enabled = False
-
+        self.unsupported_actions = {}
         self.button_refs : Dict[str, QPushButton]= {}
         self.init_ui()
 
@@ -165,7 +165,11 @@ class ControlMapperApp(QMainWindow):
             except:
                 pass
             side = self.joystick_sides[js_number]
-            default_action_conf = all_default_actions[action.name]
+            try:
+                default_action_conf = all_default_actions[action.name]
+            except KeyError:
+                logger.warning(f"Action {action.name} not found in default actions.")
+                self.unsupported_actions[action.name] = action
             hold = default_action_conf.activationmode == "delayed_press"                    
             main_category = default_action_conf.main_category
             sub_category = default_action_conf.sub_category
