@@ -214,7 +214,8 @@ class ControlMapperApp(QMainWindow):
         else:
             default_joystick= self.right_joystick_config
     
-
+        all_configured_actions = self.left_joystick_config.configured_actions
+        all_configured_actions.update(self.right_joystick_config.configured_actions)
         for action in self.all_default_actions.values():
             if action.joystick and action.joystick not in [' ', '',None]:  
                 
@@ -231,8 +232,9 @@ class ControlMapperApp(QMainWindow):
                         
                 configured_action = self.current_config.get_all_actions_for_button(action.name, modifier=modifier, multitap=False, hold=hold)
                 already_configured= False
-                for configured_action in default_joystick.configured_actions.values():
-                    if configured_action.input == action.joystick and  action.main_category:
+                
+                for configured_action in all_configured_actions.values():
+                    if configured_action.name == action.name:
                         already_configured = True
                         continue # already mapped to a different key than default
                 if already_configured:
