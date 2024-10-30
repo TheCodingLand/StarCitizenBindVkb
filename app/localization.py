@@ -38,9 +38,9 @@ class LocalizationFile(BaseModel):
         return cls(localization_strings=localization_strings)
     
     def get_localization_string(self, key: str) -> str:
-        if key[1:] not in self.localization_strings:
+        if key[1:].lower() not in self.localization_strings:
             return key
-        return self.localization_strings[key[1:]]
+        return self.localization_strings[key[1:].lower()]
     
 
 

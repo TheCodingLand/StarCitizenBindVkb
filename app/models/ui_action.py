@@ -1,14 +1,22 @@
 
 # models/action.py
+from typing import Dict
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTreeView, QPushButton
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtCore import Qt
 
+from globals import APP_PATH
+from localization import LocalizationFile
+from models import configmap
+from models.actions import Action
+
+localization_file = LocalizationFile.from_file(APP_PATH / 'data' / 'Localization' / 'english'/ 'global.ini')
+
 class ActionSelectionDialog(QDialog):
-    def __init__(self, actions, parent=None):
+    def __init__(self, actions_objs: Dict[str, Action], parent: QDialog | None = None):
         super().__init__(parent)
         self.setWindowTitle("Select Action")
-        self.actions = actions
+        self.action_objs = actions_objs
         self.selected_action = None
         self.init_ui()
 
@@ -18,12 +26,8 @@ class ActionSelectionDialog(QDialog):
         model = QStandardItemModel()
         root_node = model.invisibleRootItem()
 
-        # Add 'Clear Action' option
-        clear_item = QStandardItem("Clear Action")
-        root_node.appendRow(clear_item)
-
-        for category, sub_actions in self.actions.items():
-            category_item = QStandardItem(category)
+        for category, sub_actions in self.action_objs.items():
+            category_item = QStandardItem(localization_file.get_localization_string(category))
             for action in sub_actions:
                 action_item = QStandardItem(action)
                 category_item.appendRow(action_item)
@@ -34,7 +38,7 @@ class ActionSelectionDialog(QDialog):
         self.tree_view.doubleClicked.connect(self.on_item_double_clicked)
         layout.addWidget(self.tree_view)
 
-    def on_item_double_clicked(self, index):
+    def on_item_double_clicked(self, index: int):
         item = self.tree_view.model().itemFromIndex(index)
         if item:
             if item.hasChildren():

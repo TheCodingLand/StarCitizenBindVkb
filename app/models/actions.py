@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 from rich import inspect
 
-from app.globals import APP_PATH
-from app.localization import LocalizationFile
+from globals import APP_PATH
+from localization import LocalizationFile
 
 from pydantic import BaseModel, Field, field_validator
 

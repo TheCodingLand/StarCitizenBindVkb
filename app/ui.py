@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
 from PyQt6.QtGui import QPixmap, QIcon
+from localization import LocalizationFile
 from models import configmap
 from models.joystick import JoystickConfig, JoyAction, get_joystick_buttons
 from models.ui_action import ActionSelectionDialog
@@ -81,7 +82,7 @@ class ControlMapperApp(QMainWindow):
         self.modifier_enabled: bool = False
         self.multitap_enabled: bool = False
         self.hold_enabled: bool = False
-        self.unsupported_actions: Dict[str, Action] = {}
+        self.unsupported_actions: Dict[str, configmap.Action] = {}
         self.button_refs: Dict[str, QPushButton] = {}
         self.joystick_sides: Dict[int, str] = {}
         self.selected_button_label: Optional[str] = None  # Currently selected button label
