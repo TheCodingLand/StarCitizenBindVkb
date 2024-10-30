@@ -4,18 +4,19 @@ from pathlib import Path
 from typing import Any, Dict, List
 from rich import inspect
 
+from globals import APP_PATH
 from localization import LocalizationFile
 
 from pydantic import BaseModel, Field, field_validator
 
-current_path= Path(__file__).parent
+
 
 SC = "LIVE"
 SC_VERSION = "sc-alpha-3.24.2-9381373"
-sc_actionmaps_path = current_path.parent / 'data' / 'LIVE' /SC_VERSION / f"actionmap.json"
+sc_actionmaps_path = APP_PATH / 'data' / 'LIVE' /SC_VERSION / f"actionmap.json"
 actionmaps = json.loads(sc_actionmaps_path.read_text())
 
-localization_file_path = current_path.parent / 'data' / 'Localization' / 'english'/ 'global.ini'
+localization_file_path = APP_PATH / 'data' / 'Localization' / 'english'/ 'global.ini'
 localization_file = LocalizationFile.from_file(localization_file_path)
 
 

@@ -7,7 +7,7 @@ from typing import Dict, Optional, List
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QMessageBox, QComboBox,
-    QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QListWidgetItem, QSpacerItem, QSizePolicy
+    QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QListWidgetItem
 )
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
@@ -22,16 +22,16 @@ from models.actions import Action, get_all_defined_game_actions, get_all_subcate
 from models.configmap import (
     ExportedActionMapsFile, ActionMap, Rebind, get_action_maps_object
 )
-from globals import get_installation
+from globals import APP_PATH, get_installation
 
 # Set up logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
-current_path = Path(__file__).parent
-icon_path = current_path / "images/app_icon.png" 
-left_image_path = current_path / "images/vkb_left.png"
-right_image_path = current_path / "images/vkb_right.png"
+
+icon_path = APP_PATH / "images/app_icon.png" 
+left_image_path = APP_PATH / "images/vkb_left.png"
+right_image_path = APP_PATH / "images/vkb_right.png"
 
 actions: Dict[str, List[str]] = get_all_subcategories_actions()
 all_default_actions: Dict[str, Action] = get_all_defined_game_actions()

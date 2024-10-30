@@ -1,5 +1,6 @@
 
 import os
+from pathlib import Path
 from typing import List, Literal
 
 from pydantic import BaseModel, Field
@@ -13,6 +14,8 @@ class StarCitizenInstallation(BaseModel):
     type: Literal['PTU', 'LIVE']
 
 SC_FOLDER = "F:/Star Citizen/StarCitizen"
+
+APP_PATH = Path(__file__).parent
 
 def get_installation(installation_type: Literal["PTU", "LIVE"]) -> StarCitizenInstallation | None:
     installation_path = os.path.join(SC_FOLDER, installation_type)
