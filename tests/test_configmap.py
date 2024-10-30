@@ -10,13 +10,13 @@ from configmap import ActionMapsFile, get_action_maps_file, Action
 SC = "LIVE"
 SC_VERSION = "sc-alpha-3.24.2-9381373"
 sc_actionmaps_path = Path(__file__).parent / 'data' / SC_VERSION / f"actionmap.json"
-
+data_folder= Path(__file__).parent / "data"
 def test_actionmap():
         
     possible_actions = get_all_defined_game_actions()
+    action_maps_file_souce = data_folder / "actionmaps.xml"
 
-
-    x = get_action_maps_file()
+    x = get_action_maps_file(action_maps_file_souce)
     name_action_mapping = { action.name: action for action in possible_actions.values()}
     x = ActionMapsFile(**x)
 
