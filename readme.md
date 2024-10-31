@@ -4,7 +4,7 @@
 [![Build](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/build.yml/badge.svg)](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/build.yml)
 ![Coverage](./coverage.svg)
 
-![logo](app/data/images/app_icon.png)
+![logo](logo.png)
 
 ## Work in Progress
 
