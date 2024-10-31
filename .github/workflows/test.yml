@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write  # Needed for committing the coverage badge
 
+env:
+  DISPLAY: ":99.0"
+  QT_SELECT: "qt6"
+
 jobs:
   test:
     runs-on: ubuntu-latest
