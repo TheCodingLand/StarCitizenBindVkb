@@ -30,7 +30,7 @@ exe = EXE(
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
-    icon='icon.ico',
+    icon='app_icon.ico',
     entitlements_file=None
 )
 coll = COLLECT(
@@ -40,7 +40,7 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='ScVkbConf',
+    name='ScVkbConfigurator',
     
     
 )
