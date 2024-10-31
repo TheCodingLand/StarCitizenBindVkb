@@ -7,7 +7,7 @@
 # StarCitizen Bind VKB
 
 
-<img src="logo.png" alt="logo">
+<img src="logo.png" alt="logo" max_width=350>
 
 ## Work in Progress
 
