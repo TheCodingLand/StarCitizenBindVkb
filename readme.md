@@ -4,10 +4,11 @@
 ![Coverage](./coverage.svg)
 
 
-# StarCitizen Bind VKB
 
 
-<img src="logo.png" alt="logo" width=270>
+<p align="center">
+<img src="logo.png" alt="logo" width=400>
+<p>
 
 ## Work in Progress
 
