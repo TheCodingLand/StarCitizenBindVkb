@@ -27,18 +27,15 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: "3.12"
-          
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flake8 pytest pytest-cov pytest-qt
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
       - name: Start Xvfb
         run: |
           sudo apt-get install -y xvfb libxkbcommon-x11-0 libxcb-icccm4 \
@@ -48,7 +45,6 @@ jobs:
           sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev \
             libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
           sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
-
       - name: Lint with flake8
         run: |
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
@@ -56,13 +52,25 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --cov=app --cov-report=xml --cov-report=html --cov-report=json
+          pytest --cov=app --cov-report=xml --cov-report=html
 
       - name: Generate coverage badge
-        uses: we-cli/coverage-badge-action@v1.0.1
+        uses: tj-actions/coverage-badge-py@v2
         with:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
-
+      - name: Commit files
+        if: steps.verify-changed-files.outputs.files_changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add coverage.svg
+          git commit -m "Updated coverage.svg"
+      - name: Push changes
+        if: steps.verify-changed-files.outputs.files_changed == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.github_token }}
+          branch: ${{ github.ref }}
       - name: Upload coverage report
         uses: actions/upload-artifact@v3
         with:
