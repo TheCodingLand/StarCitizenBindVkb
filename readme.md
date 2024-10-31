@@ -1,5 +1,7 @@
 # StarCitizen Bind VKB
 
+[![Tests](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/test.yml/badge.svg?style=flat-square)](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/test.yml)
+
 ![logo](app/data/images/app_icon.png)
 
 ## Work in Progress
