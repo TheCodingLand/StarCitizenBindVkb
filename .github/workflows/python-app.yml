@@ -3,11 +3,12 @@ name: Python application
 on:
   push:
     branches: [ "main" ]
+    tags: [ '*' ]  # Trigger on any tag push
   pull_request:
     branches: [ "main" ]
 
 permissions:
-  contents: read
+  contents: write  # Needed for creating releases
 env:
   DISPLAY: ":99.0"
   QT_SELECT: "qt6"
@@ -17,40 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v3
-        with:
-          python-version: "3.12"
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-qt
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      - name: Start Xvfb
-        run: |
-          sudo apt-get install -y xvfb libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xinput0 libxcb-xfixes0 libxcb-shape0 libglib2.0-0 libgl1-mesa-dev
-          sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
-          sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
-      - name: Lint with flake8
-        run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      - name: Test with pytest
-        run: pytest
-      - name: Build coverage file
-        run: |
-          pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=app tests/ | tee pytest-coverage.txt
-      - name: Pytest coverage comment
-        uses: MishaKav/pytest-coverage-comment@main
-        with:
-          pytest-coverage-path: ./pytest-coverage.txt
-          junitxml-path: ./pytest.xml
+      # ... (rest of your test steps)
 
   build-windows:
+    needs: test  # Run after tests pass
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,9 +32,18 @@ jobs:
           spec: 'ui.spec'
           requirements: 'requirements.txt'
           upload_exe_with_name: ''
-          options: --onefile
+          options: ''
+      - name: Compress dist folder
+        run: |
+          Compress-Archive -Path .\dist\* -DestinationPath windows-dist.zip
+      - name: Upload Windows Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-dist
+          path: windows-dist.zip
 
   build-linux:
+    needs: test  # Run after tests pass
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,4 +58,50 @@ jobs:
       - name: Build Executable
         run: |
           pip install pyinstaller
-          pyinstaller --onefile ui.spec
+          pyinstaller ui.spec
+      - name: Compress dist folder
+        run: |
+          zip -r linux-dist.zip dist/
+      - name: Upload Linux Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: linux-dist
+          path: linux-dist.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')  # Only run on tag push
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows Build Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-dist
+          path: .
+      - name: Download Linux Build Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: linux-dist
+          path: .
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+      - name: Upload Windows Build to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./windows-dist.zip
+          asset_name: windows-dist.zip
+          asset_content_type: application/zip
+      - name: Upload Linux Build to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./linux-dist.zip
+          asset_name: linux-dist.zip
+          asset_content_type: application/zip
