@@ -305,7 +305,10 @@ class ControlMapperApp(QMainWindow):
 
         #Adjust column widths
         self.unsupported_actions_table_widget.resizeColumnsToContents()
+
+
     def load_joystick_mappings(self) -> None:
+        
         self.unsupported_actions.clear()
         self.left_joystick_config.clear_mappings()
         self.right_joystick_config.clear_mappings()
@@ -507,12 +510,13 @@ class ControlMapperApp(QMainWindow):
         """
         Display the action panel with all mappings for the selected button.
         """
+        self.apply_button_style(button, action=self.has_action(label), selected=True)
+        
         if self.previous_selected_button and self.previous_selected_button != button:
             self.update_button_label(self.selected_button_label)
-            self.apply_button_style(self.previous_selected_button, action=self.has_action(self.selected_button_label))
+            self.apply_button_style(self.previous_selected_button, action=self.has_action(self.selected_button_label), selected=False)
         
-         # Highlight the currently selected button
-        self.apply_button_style(button, action=False, selected=True)
+        
 
         self.previous_selected_button = button
         self.selected_button_label = label
@@ -588,7 +592,7 @@ class ControlMapperApp(QMainWindow):
                 )
                 self.current_config.set_mapping(joy_action)
                 self.update_button_label(self.selected_button_label)
-                self.show_action_panel(None, self.selected_button_label)  # Refresh the panel
+                self.show_action_panel(self.button_refs[self.selected_button_label], self.selected_button_label)  # Refresh the panel
             else:
                 logger.warning(f"Action {selected_action_name} not found.")
 
@@ -610,7 +614,7 @@ class ControlMapperApp(QMainWindow):
             # Remove the rows in reverse order to prevent shifting issues
             for row in reversed(range(selected_range.topRow(), selected_range.bottomRow() + 1)):
                 self.actions_table_widget.removeRow(row)
-
+        assert self.selected_button_label
         self.update_button_label(self.selected_button_label)
 
     def has_action(self, label: str) -> bool:
@@ -637,7 +641,10 @@ class ControlMapperApp(QMainWindow):
             )
         else:
             button.setText(label)
-        self.apply_button_style(button, action=has_action)
+        if self.selected_button_label == label:
+            self.apply_button_style(button, action=has_action, selected=True)
+        else:
+            self.apply_button_style(button, action=has_action)
 
     def apply_button_style(
         self, button: QPushButton, action: bool, selected: bool = False
