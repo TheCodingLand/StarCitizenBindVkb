@@ -1,6 +1,8 @@
 # StarCitizen Bind VKB
 
-[![Tests](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/test.yml/badge.svg?style=flat-square)](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/test.yml)
+[![Tests](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/test.yml/badge.svg)](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/test.yml)
+[![Build](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/build.yml/badge.svg)](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/build.yml)
+![Coverage](./coverage.svg)
 
 ![logo](app/data/images/app_icon.png)
 
