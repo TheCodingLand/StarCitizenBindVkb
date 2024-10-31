@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches: [ "main" ]
@@ -14,9 +13,17 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    uses: test.yml
+    steps:
+      uses: test.yml
 
-  build:
+  build-windows:
     needs: test
-    runs-on: [ubuntu-latest, windows-latest]
-    uses: build.yml
+    runs-on: windows-latest
+    steps:
+      uses: build.yml
+      
+  build-linux:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      uses: build.yml
