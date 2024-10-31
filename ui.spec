@@ -1,6 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
     ['app/ui.py'],
     pathex=[],
@@ -31,7 +30,8 @@ exe = EXE(
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
-    entitlements_file=None,
+    icon='icon.ico',
+    entitlements_file=None
 )
 coll = COLLECT(
     exe,
@@ -41,4 +41,6 @@ coll = COLLECT(
     upx=True,
     upx_exclude=[],
     name='ScVkbConf',
+    
+    
 )
