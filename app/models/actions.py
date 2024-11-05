@@ -2,18 +2,13 @@
 import json
 from typing import Any, Dict, List
 from app.globals import APP_PATH
-from app.localization import LocalizationFile
-from pydantic import BaseModel, Field, field_validator
 
+from pydantic import BaseModel, Field, field_validator
+from app.models.game_control_map import  AllActionMaps, GameAction
 
 SC = "LIVE"
 SC_VERSION = "sc-alpha-3.24.2-9381373"
 sc_actionmaps_path = APP_PATH / 'data' / 'LIVE' /SC_VERSION / f"actionmap.json"
-
-
-localization_file_path = APP_PATH / 'data' / 'Localization' / 'english'/ 'global.ini'
-localization_file = LocalizationFile.from_file(localization_file_path)
-
 
 class Input(BaseModel):
      input: str = Field(..., alias='@input')
@@ -63,27 +58,33 @@ class Action(BaseModel):
         return value
 
 
-def get_all_defined_game_actions() -> Dict[str, Action]:
+def get_all_defined_game_actions() -> Dict[str, List[GameAction]]:
+    # returns action names str, adds main_category and sub_category to the actionmap
+    output= {}
+
     actionmaps: Dict[str, Dict[str, Dict[str, str]]] = json.loads(sc_actionmaps_path.read_text())
-    possible_actions: List[Action]= []
+    aam = AllActionMaps.model_validate(actionmaps)
+    for main_cat, actionmap in aam.root.items():
+        sub_category = actionmap.name
+        for action in actionmap.action:
+            if action.name not in output:
+                output[action.name] = []
+            output[action.name].append(GameAction(main_category=main_cat, sub_category=sub_category, **action.model_dump(exclude_none=True)))
+    return output
 
-    for main_category, sub_categories in actionmaps.items():
-        for sub_category, actions in sub_categories.items():
-            for action_label, action in actions.items():
-                action = Action(name=action_label, main_category=main_category, sub_category=sub_category,**action)
-                possible_actions.append(action)
-    return {action.name: action for action in possible_actions}
 
-
-def get_all_subcategories_actions() -> Dict[str, Dict[str, Action]]:
+def get_all_subcategories_actions() -> AllActionMaps:
     actionmaps: Dict[str, Dict[str, Dict[str, str]]] = json.loads(sc_actionmaps_path.read_text())
-    subcat_actions: Dict[str, Dict[str, Action]]= {}
-    for main_category, sub_categories in actionmaps.items():
-        for sub_category, actions in sub_categories.items():
-            subcat_actions[sub_category] = {}
-            for action_label, action in actions.items():
-                subcat_actions[sub_category][action_label] = Action(name=action_label, main_category=main_category, sub_category=sub_category,**action)
-    return subcat_actions
+    aam = AllActionMaps.model_validate(actionmaps)
+    return aam
+
+
+    # for main_category, controlmap in actionmaps.items():
+    #     for cm in controlmap.actions:
+    #         subcat_actions[sub_category] = {}
+    #         for action_label, action in actions.items():
+    #             subcat_actions[sub_category][action_label] = Action(name=action_label, main_category=main_category, sub_category=sub_category,**action)
+    # return subcat_actions
     
 
 

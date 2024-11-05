@@ -136,7 +136,7 @@ def test_add_action_to_button(main_window: ControlMapperApp, qtbot: pytestqt.qtb
             category="Test",
             sub_category="SubTest",
             modifier=True,
-            button=joystick_buttons["button1"],
+            button=joystick_buttons["button1"]
         )
     )
     main_window.add_action_to_button()

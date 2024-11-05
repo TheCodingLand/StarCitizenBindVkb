@@ -5,15 +5,13 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTreeView
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtCore import Qt
 
-from app.globals import APP_PATH
-from app.localization import LocalizationFile
+from app.globals import localization_file
 
-from app.models.actions import Action
 
-localization_file = LocalizationFile.from_file(APP_PATH / 'data' / 'Localization' / 'english'/ 'global.ini')
+from app.models.actions import AllActionMaps
 
 class ActionSelectionDialog(QDialog):
-    def __init__(self, actions_objs: Dict[str, Dict[str, Action]], parent: QDialog | None = None):
+    def __init__(self, actions_objs: AllActionMaps, parent: QDialog | None = None):
         super().__init__(parent)
         self.setWindowTitle("Select Action")
         self.action_objs = actions_objs
@@ -26,11 +24,11 @@ class ActionSelectionDialog(QDialog):
         model = QStandardItemModel()
         root_node = model.invisibleRootItem()
 
-        for category, sub_actions in self.action_objs.items():
+        for category, sub_actions in self.action_objs.root.items():
             category_item = QStandardItem(localization_file.get_localization_string(category))
-            for action_key, action in sub_actions.items():
+            for action in sub_actions.action:
                 action_item = QStandardItem(localization_file.get_localization_string(action.ui_label) if action.ui_label else action.name)
-                action_item.setData(action_key, Qt.ItemDataRole.UserRole)
+                action_item.setData(action.name, Qt.ItemDataRole.UserRole)
                 category_item.appendRow(action_item)
             root_node.appendRow(category_item)
 

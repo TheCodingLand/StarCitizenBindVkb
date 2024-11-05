@@ -15,6 +15,18 @@
             },
             "cwd": "${workspaceFolder}"
 
+        },
+        {
+            "name": "Launch UI",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "app/ui.py",
+            "console": "integratedTerminal",
+            "env":{
+                "PYTHONPATH": "F:/CodeProjects/2024/starfab/frameworks/scdatatools;${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}"
+
         }
     ]
 }

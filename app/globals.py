@@ -5,9 +5,12 @@ from typing import List, Literal
 
 from pydantic import BaseModel
 
+from app.localization import LocalizationFile
+
 InstallationTypes = 'PTU', 'LIVE'
 
 SC_FOLDER = "F:/Star Citizen/StarCitizen"
+
 
 class StarCitizenInstallation(BaseModel):
     path: str
@@ -17,6 +20,8 @@ class StarCitizenInstallation(BaseModel):
 
 
 APP_PATH = Path(__file__).parent
+localization_file_path = APP_PATH / 'data' / 'Localization' / 'english'/ 'global.ini'
+localization_file = LocalizationFile.from_file(localization_file_path)
 
 def get_installation(sc_folder: str, installation_type: Literal["PTU", "LIVE"]) -> StarCitizenInstallation | None:
     installation_path = os.path.join(sc_folder, installation_type)

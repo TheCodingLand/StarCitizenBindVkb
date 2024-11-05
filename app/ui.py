@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, List, Union
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QMessageBox, QComboBox,
-    QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog
+    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QPixmap
@@ -15,7 +15,9 @@ from PyQt6.QtCore import QRect, Qt, QEvent, QObject
 from PyQt6.QtGui import QPixmap, QIcon
 from PyQt6 import QtGui
 from app.config import Config
+
 from app.models import configmap
+from app.models.game_control_map import GameAction, GameActionMap
 from app.models.joystick import JoystickConfig, JoyAction, get_joystick_buttons
 from app.models.settings_dialog import SettingsDialog
 from app.models.ui_action import ActionSelectionDialog
@@ -26,7 +28,7 @@ from app.models.actions import Action, get_all_defined_game_actions, get_all_sub
 from app.models.configmap import (
     ExportedActionMapsFile, ActionMap, Rebind, get_action_maps_object
 )
-from app.globals import APP_PATH, get_installation
+from app.globals import APP_PATH, get_installation, localization_file
 
 # Set up logging
 setup_logging()
@@ -38,7 +40,7 @@ left_image_path = APP_PATH / "data/images/vkb_left.png"
 right_image_path = APP_PATH / "data/images/vkb_right.png"
 
 cat_subcat_actions = get_all_subcategories_actions()
-all_default_actions: Dict[str, Action] = get_all_defined_game_actions()
+all_default_actions = get_all_defined_game_actions()
 joystick_buttons = get_joystick_buttons()
 
 width: int = 155
@@ -57,6 +59,7 @@ class ControlMapperApp(QMainWindow):
         self.setWindowIconText("VKB Joystick Mapper")
         # Adjust the main window size to accommodate the action panel
         self.setGeometry(100, 100, 1950 + 400, 938)  # Increased width by 400 for the panel
+       
 
         # Create central widget and main layout 
         self.central_widget = QWidget(self)
@@ -178,7 +181,7 @@ class ControlMapperApp(QMainWindow):
         panel_width = 560
         self.action_panel.setMinimumWidth(panel_width)
         self.action_panel.setMaximumWidth(panel_width)
-
+        
         # Label to display the selected button
         self.selected_button_label_widget: QLabel = QLabel("Selected Button: None", self.action_panel)
         self.action_panel_layout.addWidget(self.selected_button_label_widget)
@@ -349,7 +352,7 @@ class ControlMapperApp(QMainWindow):
                 return
             side: str = self.joystick_sides[js_number]
             try:
-                default_action_conf: Action = all_default_actions[action.name]
+                default_action_conf: List[GameAction] = all_default_actions[action.name]
             except KeyError:
                 logger.warning(
                     f"Action {action.name} not found in default actions."
@@ -362,31 +365,33 @@ class ControlMapperApp(QMainWindow):
                 }
                 self.unsupported_actions.append(unsupported_action_info)
                 return
+            for game_action in default_action_conf:
                 
-            hold: bool = default_action_conf.activationmode == "delayed_press"
-            main_category: str = default_action_conf.main_category
-            sub_category: str = default_action_conf.sub_category
-            multitap: bool = rebind.multitap is not None
-            button = joystick_buttons.get(js_button)
-            if button is None:
-                logger.warning(
-                    f"Button {js_button} not found in joystick_buttons."
+                #hold: bool = game_action.activation_mode == "delayed_press"
+                hold = game_action.on_hold == '1'
+                main_category: str = game_action.main_category
+                sub_category: str = game_action.sub_category
+                multitap: bool = rebind.multitap is not None
+                button = joystick_buttons.get(js_button)
+                if button is None:
+                    logger.warning(
+                        f"Button {js_button} not found in joystick_buttons."
+                    )
+                    continue
+                joy_action = JoyAction(
+                    name=action.name,
+                    input=rebind.input,
+                    multitap=multitap,
+                    hold=hold,
+                    category=main_category,
+                    sub_category=sub_category,
+                    modifier=modifier,
+                    button=button,
                 )
-                return
-            joy_action = JoyAction(
-                name=action.name,
-                input=rebind.input,
-                multitap=multitap,
-                hold=hold,
-                category=main_category,
-                sub_category=sub_category,
-                modifier=modifier,
-                button=button,
-            )
-            if side == "left":
-                self.left_joystick_config.set_mapping(joy_action)
-            else:
-                self.right_joystick_config.set_mapping(joy_action)
+                if side == "left":
+                    self.left_joystick_config.set_mapping(joy_action)
+                else:
+                    self.right_joystick_config.set_mapping(joy_action)
         except Exception as e:
             logger.exception(f"Error processing rebind: {e}")
 
@@ -410,31 +415,45 @@ class ControlMapperApp(QMainWindow):
         else:
             # If js1 is not found, default to left joystick
             default_joystick = self.left_joystick_config
-
-        for action in all_default_actions.values():
-            if action.name in configured_action_names:
-                continue  # Action is already configured
-            if action.joystick and action.joystick.strip():
-                # Determine if modifier is used
-                modifier = '+' in action.joystick
-                if modifier:
-                    js_button, _ = action.joystick.split('+', 1)
+        
+        for main_cat, action_game_map in cat_subcat_actions.root.items():
+            sub_cat = action_game_map.name
+            for action in action_game_map.action:
+                if action.name in configured_action_names:
+                    continue
+                if action.joystick is None:
+                    continue
+                if isinstance(action.joystick, str):
+                    #hold = bind.joystick. == "delayed_press"
+                    hold = action.activation_mode == "delayed_press"
+                    js_button= action.joystick
+                    
                 else:
-                    js_button = action.joystick
-                if js_button not in joystick_buttons:
-                    continue  # Button not recognized
-                hold = action.activationmode == "delayed_press"
+                    js_button= action.joystick.input
+                    hold = action.joystick.activationmode == "delayed_press"
+                if js_button in [" ", ""]:
+                    continue
+                modifier = "+" in js_button
+                if modifier:
+                    js_button = js_button.split("+")[-1]
+                if 'slider' in js_button:
+                    continue
                 joy_action = JoyAction(
-                    name=action.name,
-                    input=js_button,
-                    multitap=False,
-                    hold=hold,
-                    category=action.main_category,
-                    sub_category=action.sub_category,
-                    modifier=modifier,
-                    button=joystick_buttons[js_button],
-                )
+                        name=action.name,
+                        input=js_button,
+                        multitap=False,
+                        hold=hold,
+                        category=main_cat,
+                        sub_category=sub_cat,
+                        modifier=modifier,
+                        button=joystick_buttons[js_button],
+                    )
+                    
+                
                 default_joystick.set_mapping(joy_action)
+
+    def binds_from_action(self, bind: GameActionMap) -> List[JoyAction]:
+        pass
 
     def populate_control_maps_combo_box(self) -> None:
         self.control_maps_combo_box.clear()
@@ -574,8 +593,8 @@ class ControlMapperApp(QMainWindow):
         if dialog.exec():
             selected_action_name: str = dialog.selected_action
             #selected_action_key: str = dialog.selected_action
-            action: Optional[Action] = all_default_actions.get(selected_action_name)
-            
+            action: List[GameAction] = all_default_actions.get(selected_action_name)
+            action_info = action[0]
             if action:
                 hold: bool = self.hold_enabled
                 multitap: bool = self.multitap_enabled
@@ -585,16 +604,38 @@ class ControlMapperApp(QMainWindow):
                     input=self.selected_button_label,
                     multitap=multitap,
                     hold=hold,
-                    category=action.main_category,
-                    sub_category=action.sub_category,
+                    category=action_info.main_category,
+                    sub_category=action_info.sub_category,
                     modifier=modifier,
                     button=joystick_buttons[self.selected_button_label],
                 )
                 self.current_config.set_mapping(joy_action)
                 self.update_button_label(self.selected_button_label)
                 self.show_action_panel(self.button_refs[self.selected_button_label], self.selected_button_label)  # Refresh the panel
+                self.update_control_map()
             else:
                 logger.warning(f"Action {selected_action_name} not found.")
+    def add_action_to_control_map(self, joy_action: JoyAction) -> None:
+        
+        category = joy_action.sub_category
+        assert category is not None
+
+        for actionmap in self.control_map.actionmap:
+            if actionmap.name == category:
+                actionmap.action.append(joy_action)
+                return
+
+      
+
+        
+
+    def update_control_map(self) -> None:
+        self.control_map.actionmap.clear()
+        for action in self.left_joystick_config.configured_actions.values():
+            self.add_action_to_control_map(action)
+        for action in self.right_joystick_config.configured_actions.values():
+            self.add_action_to_control_map(action)
+
 
     def remove_selected_action(self) -> None:
         """

@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Any, Dict, List
 from rich import inspect
 
-from app.globals import APP_PATH
-from app.localization import LocalizationFile
+from app.globals import APP_PATH, localization_file
+
+
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -13,8 +14,7 @@ SC = "LIVE"
 SC_VERSION = "sc-alpha-3.24.2-9381373"
 sc_actionmaps_path = APP_PATH / 'data' / 'LIVE' /SC_VERSION / f"actionmap.json"
 
-localization_file_path = APP_PATH / 'data' / 'Localization' / 'english'/ 'global.ini'
-localization_file = LocalizationFile.from_file(localization_file_path)
+
 
 actionmaps = json.loads(sc_actionmaps_path.read_text())
 class Input(BaseModel):

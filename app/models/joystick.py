@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from pydantic import BaseModel, Field
 
 from app.config import Config
-
+from globals import localization_file
 config = Config.get_config()
 
 class JoyStickButton(BaseModel):
@@ -24,6 +24,14 @@ class JoyAction(BaseModel):
     multitap: bool = False
     hold: bool = False
     button: JoyStickButton
+    
+    
+    @property
+    def actionmap_section(self) -> str:
+        """Return the section of the action map."""
+        return localization_file.get_localization_string(self.sub_category)
+
+    
     
     @property
     def key(self) -> str:
