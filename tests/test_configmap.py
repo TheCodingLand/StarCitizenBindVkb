@@ -31,7 +31,7 @@ def test_actionmap():
         for action in actions.action:
             for item in always_list(action):
                 if isinstance(action, Action):
-                    if action.rebinding is not None:
+                    if action.rebind is not None:
                         pass
                             
                             # defined keys

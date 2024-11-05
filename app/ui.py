@@ -34,7 +34,7 @@ from app.globals import APP_PATH, get_installation, localization_file
 setup_logging()
 logger = logging.getLogger(__name__)
 
-
+DEFAULT_CONTROL_MAP_FILENAME = APP_PATH / "data/SCBindsDefault.xml"
 icon_path = APP_PATH / "data/images/app_icon.png" 
 left_image_path = APP_PATH / "data/images/vkb_left.png"
 right_image_path = APP_PATH / "data/images/vkb_right.png"
@@ -99,6 +99,7 @@ class ControlMapperApp(QMainWindow):
         
         self.init_ui()
         self.init_install_type()
+        self.set_default_bindings()
 
     def init_install_type(self) -> None:
         self.install = get_installation(self.config.installation_path, self.config.install_type)
@@ -247,6 +248,14 @@ class ControlMapperApp(QMainWindow):
         )
         self.update_joystick_buttons()
 
+
+    def set_default_bindings(self) -> None:
+        
+        self.control_map = get_action_maps_object(DEFAULT_CONTROL_MAP_FILENAME)
+        self.joystick_sides: Dict[int, str] = self.get_joystick_sides(self.control_map)
+        self.load_joystick_mappings()
+        self.update_joystick_buttons()
+
     def select_control_map(self, index: int) -> None:
         control_map_file: str = self.exported_control_maps[index]
         try:
@@ -326,7 +335,7 @@ class ControlMapperApp(QMainWindow):
 
     def process_action_map(self, actionmap: ActionMap) -> None:
         for action in actionmap.action:
-            for rebind in action.rebinding:
+            for rebind in action.rebind:
                 self.process_rebind(action, rebind)
 
     def process_rebind(
@@ -625,12 +634,11 @@ class ControlMapperApp(QMainWindow):
                 actionmap.action.append(joy_action)
                 return
 
-      
-
-        
-
     def update_control_map(self) -> None:
-        self.control_map.actionmap.clear()
+        try:
+            self.control_map.actionmap.clear()
+        except AttributeError:
+            pass
         for action in self.left_joystick_config.configured_actions.values():
             self.add_action_to_control_map(action)
         for action in self.right_joystick_config.configured_actions.values():

@@ -78,7 +78,7 @@ class ActionSelectionDialog(QDialog):
                 expanded = self.tree_view.isExpanded(index)
                 self.tree_view.setExpanded(index, not expanded)
             else:
-                self.selected_action = item.data(Qt.ItemDataRole.UserRole)
+                self.selected_action = item.data(Qt.ItemDataRole.UserRole).original_name
                 self.accept()
 
 

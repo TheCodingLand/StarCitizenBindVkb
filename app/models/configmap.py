@@ -25,7 +25,8 @@ class Rebind(BaseModel):
 
 class Action(BaseModel):
     name: str = Field(..., alias="@name")
-    rebinding: List[Rebind] = Field(..., alias="rebind")
+    title: Optional[str] = Field(None, alias="@title")
+    rebind: List[Rebind] = Field([])
 
 TItem = TypeVar("TItem")
 class ActionMap(BaseModel):
@@ -42,7 +43,6 @@ class ActionMap(BaseModel):
 
 class Option(BaseModel):
     model_config = ConfigDict(extra='allow')
-    "[{'@type': 'keyboard', '@instance': '1', '@Product': 'Clavier  {6F1D2B61-D5A0-11CF-BFC7-444553540000}'}]"
     type: str = Field(..., alias="@type")
     instance: int = Field(..., alias="@instance")
     product: str | None = Field(default=None, alias="@Product")
@@ -119,11 +119,11 @@ class JoystickBind(BaseModel):
         return cls(axis_or_button=bind.input, modifier_str=modifier_str, modifier=modifier, action=action)
 
 
-def get_exported_action_map_file(action_maps_file_souce: str) -> ExportedActionMapsFile:
-    return ExportedActionMapsFile(**get_action_maps_file(action_maps_file_souce))
+def get_exported_action_map_file(action_maps_file_source: str) -> ExportedActionMapsFile:
+    return ExportedActionMapsFile(**get_action_maps_file(action_maps_file_source))
 
-def get_action_maps_object(action_maps_file_souce: str) -> ExportedActionMapsFile:
-    return ExportedActionMapsFile(**get_action_maps_file(action_maps_file_souce))
+def get_action_maps_object(action_maps_file_source: str) -> ExportedActionMapsFile:
+    return ExportedActionMapsFile(**get_action_maps_file(action_maps_file_source))
 
 if __name__ == "__main__":
     
