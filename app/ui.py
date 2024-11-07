@@ -29,7 +29,7 @@ from app.models.configmap import (
     ExportedActionMapsFile, ActionMap, Rebind, get_action_maps_object
 )
 from app.globals import APP_PATH, get_installation, localization_file
-
+import xmltodict
 # Set up logging
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -46,6 +46,13 @@ joystick_buttons = get_joystick_buttons()
 width: int = 155
 height: int = 35
 
+test_output_file = APP_PATH / "data/test_output.xml" 
+
+def unparse(data: ExportedActionMapsFile) -> str:
+    xml_data = { 'ActionMaps': [data.model_dump(exclude_none=True, by_alias=True)] }
+    with open(test_output_file, 'w') as f:
+        f.write(xmltodict.unparse(xml_data, pretty=True, indent=' ',short_empty_elements=True))
+    return xmltodict.unparse(xml_data)
 
 class ControlMapperApp(QMainWindow):
     CONFIG_FILE: str = "config.json"
@@ -628,10 +635,10 @@ class ControlMapperApp(QMainWindow):
         
         category = joy_action.sub_category
         assert category is not None
-
+        
         for actionmap in self.control_map.actionmap:
             if actionmap.name == category:
-                actionmap.action.append(joy_action)
+                actionmap.action.append(joy_action.to_action())
                 return
 
     def update_control_map(self) -> None:

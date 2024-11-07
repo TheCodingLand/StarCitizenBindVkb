@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 from pydantic import BaseModel, Field
 
 from app.config import Config
+from app.models import configmap
 from globals import localization_file
 config = Config.get_config()
 
@@ -26,6 +27,17 @@ class JoyAction(BaseModel):
     button: JoyStickButton
     
     
+
+    def to_action(self) -> configmap.Action:
+        """
+        Return the action name.
+        """
+
+        action = configmap.Action(name=self.name, title=None, rebind=[configmap.Rebind(input=self.input, multitap=self.multitap)]) # type: ignore
+      
+    
+        return action
+
     @property
     def actionmap_section(self) -> str:
         """Return the section of the action map."""

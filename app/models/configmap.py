@@ -10,6 +10,21 @@ from models.actions import get_all_defined_game_actions
 
 
 
+class Device(BaseModel):
+    instance: str = Field(..., alias="@instance")
+
+class Category(BaseModel):
+    label: str = Field(..., alias="@label")
+class CategoryList(BaseModel):
+    category: List[Category | None] 
+
+class CustomisationUIHeader(BaseModel):
+    label: str = Field(..., alias="@label")
+    description: str = Field("", alias="@description")
+    image: str = Field("", alias="@image")
+    devices: List[Dict[str, List[Device]]] = Field(..., alias="devices")
+    categories: List[CategoryList| None] = Field([], alias="categories")
+
 class Joystick(BaseModel):
     type: str
     instance: int
@@ -69,14 +84,18 @@ class ActionProfile(BaseModel):
 
 class ExportedActionMapsFile(BaseModel):
     version: int = Field(..., alias="@version")
+    
     optionsVersion: int = Field(..., alias="@optionsVersion")
     rebindVersion: int = Field(..., alias="@rebindVersion")
     profileName: str = Field(..., alias="@profileName")
+
+    customizations: List[CustomisationUIHeader] = Field(..., alias="CustomisationUIHeader")
     deviceoptions:  List[DeviceOptions] = Field([])
+
     options: List[Option] = Field([], alias="options")
     modifiers: Any = Field(..., alias="modifiers")
     actionmap: List[ActionMap] = Field(...)
-
+    
 class ActionMapsFile(BaseModel):
     action_profiles: List[ActionProfile] = Field(..., alias="ActionProfiles")
 
