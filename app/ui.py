@@ -345,6 +345,20 @@ class ControlMapperApp(QMainWindow):
             for rebind in action.rebind:
                 self.process_rebind(action, rebind)
 
+    def unbind_action(self, action: configmap.Action) -> None:
+        # an action can only be bound to one button per device, but for joysticks, we want to avoid multiple bindings
+        joy_actions_copy = self.left_joystick_config.configured_actions.copy()
+        for joy_action in joy_actions_copy.values():
+            if action.name == joy_action.name:
+                self.left_joystick_config.unbind_action(action.name)
+                print(f"Unbound action {action.name} from Left Joystick")
+        joy_actions_copy = self.right_joystick_config.configured_actions.copy()
+        for joy_action in joy_actions_copy.values():
+            if action.name == joy_action.name:
+                
+                self.right_joystick_config.unbind_action(action.name)
+                
+
     def process_rebind(
         self, action: configmap.Action, rebind: Rebind
     ) -> None:
@@ -404,10 +418,14 @@ class ControlMapperApp(QMainWindow):
                     modifier=modifier,
                     button=button,
                 )
+                # an action can only be bound to one button per device, but for joysticks, we want to avoid multiple bindings
+                self.unbind_action(action) 
+                
                 if side == "left":
                     self.left_joystick_config.set_mapping(joy_action)
                 else:
                     self.right_joystick_config.set_mapping(joy_action)
+                
         except Exception as e:
             logger.exception(f"Error processing rebind: {e}")
 
@@ -465,6 +483,7 @@ class ControlMapperApp(QMainWindow):
                         button=joystick_buttons[js_button],
                     )
                     
+                
                 
                 default_joystick.set_mapping(joy_action)
 
@@ -625,6 +644,7 @@ class ControlMapperApp(QMainWindow):
                     modifier=modifier,
                     button=joystick_buttons[self.selected_button_label],
                 )
+                self.unbind_action(action_info)
                 self.current_config.set_mapping(joy_action)
                 self.update_button_label(self.selected_button_label)
                 self.show_action_panel(self.button_refs[self.selected_button_label], self.selected_button_label)  # Refresh the panel
@@ -632,24 +652,26 @@ class ControlMapperApp(QMainWindow):
             else:
                 logger.warning(f"Action {selected_action_name} not found.")
     def add_action_to_control_map(self, joy_action: JoyAction) -> None:
-        
-        category = joy_action.sub_category
-        assert category is not None
-        
+        # we use joy_action.actionmap_section to set the action in the correct actionmap       
+        #TODO : rewrite because we need to add each keybind for each device separately but to the same actionmap
         for actionmap in self.control_map.actionmap:
-            if actionmap.name == category:
-                actionmap.action.append(joy_action.to_action())
-                return
+            if actionmap.name == joy_action.actionmap_section:
+                action = configmap.Action(name=joy_action.name, rebind=Rebind(input=joy_action.input, multiTap="2" if joy_action.multitap else None))
+                actionmap.action.append(action)
+                
 
     def update_control_map(self) -> None:
-        try:
-            self.control_map.actionmap.clear()
-        except AttributeError:
-            pass
+        
+
+        for action_map_name in cat_subcat_actions.root.keys():
+            action_map = ActionMap(name=action_map_name, action=[])
+            self.control_map.actionmap.append(action_map)
         for action in self.left_joystick_config.configured_actions.values():
             self.add_action_to_control_map(action)
         for action in self.right_joystick_config.configured_actions.values():
             self.add_action_to_control_map(action)
+        
+        unparse(self.control_map)
 
 
     def remove_selected_action(self) -> None:

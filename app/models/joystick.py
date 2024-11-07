@@ -26,17 +26,6 @@ class JoyAction(BaseModel):
     hold: bool = False
     button: JoyStickButton
     
-    
-
-    def to_action(self) -> configmap.Action:
-        """
-        Return the action name.
-        """
-
-        action = configmap.Action(name=self.name, title=None, rebind=[configmap.Rebind(input=self.input, multitap=self.multitap)]) # type: ignore
-      
-    
-        return action
 
     @property
     def actionmap_section(self) -> str:
@@ -105,6 +94,13 @@ class JoystickConfig(BaseModel):
     def remove_mapping_by_key(self, key: str) -> None:
         """Remove a mapping by key."""
         self.configured_actions.pop(key, None)
+
+    def unbind_action(self, action_name: str) -> None:
+        """Remove all mappings for a specific action."""
+        configured_actions_copy = self.configured_actions.copy()
+        for key, action in configured_actions_copy.items():
+            if action.name == action_name:
+                self.configured_actions.pop(key)
 
     def get_actions_for_button(self, button_name: str, modifier: bool, multitap: bool, hold: bool = False) -> Dict[str, JoyAction]:
         return {key: action for key, action in self.configured_actions.items() if action.button.name == button_name and action.multitap == multitap and action.modifier == modifier and action.hold == hold}

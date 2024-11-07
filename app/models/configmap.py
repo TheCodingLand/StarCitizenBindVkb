@@ -39,12 +39,14 @@ class Rebind(BaseModel):
 
 
 class Action(BaseModel):
+    model_config = ConfigDict(extra='allow', populate_by_name=True)
     name: str = Field(..., alias="@name")
     title: Optional[str] = Field(None, alias="@title")
     rebind: List[Rebind] = Field([])
 
 TItem = TypeVar("TItem")
 class ActionMap(BaseModel):
+    model_config = ConfigDict(extra='forbid', populate_by_name=True)
     name : str = Field(..., alias="@name")
     action: List[Action] = Field(..., alias="action")
     
