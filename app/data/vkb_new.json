@@ -1,0 +1,17 @@
+{
+    "supported_devices": {
+        "VKB": {
+            "image_file": "vkb_new.png",
+            "image_size": {
+                "width": 1000,
+                "height": 1000
+            },
+            "buttons": {
+                "hat1_up": {
+                    "x": 0,
+                    "y": 0
+                }
+            }
+        }
+    }
+}

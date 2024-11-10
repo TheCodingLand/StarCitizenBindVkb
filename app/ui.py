@@ -36,12 +36,12 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONTROL_MAP_FILENAME = APP_PATH / "data/SCBindsDefault.xml"
 icon_path = APP_PATH / "data/images/app_icon.png" 
-left_image_path = APP_PATH / "data/images/vkb_left.png"
-right_image_path = APP_PATH / "data/images/vkb_right.png"
+left_image_path = APP_PATH / "data/images/vkb_default_left.png"
+right_image_path = APP_PATH / "data/images/vkb_default_right.png"
 
 cat_subcat_actions = get_all_subcategories_actions()
 all_default_actions = get_all_defined_game_actions()
-joystick_buttons = get_joystick_buttons()
+joystick_buttons = get_joystick_buttons("VKB Default")
 
 width: int = 155
 height: int = 35
