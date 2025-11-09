@@ -14,16 +14,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: ./test.yml
+      - uses: ./.github/workflows/test.yml
 
   build-windows:
     needs: test
     runs-on: windows-latest
     steps:
-      - uses: ./build.yml
+      - uses: ./.github/workflows/build.yml
 
   build-linux:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: ./build.yml
+      - uses: ./.github/workflows/build.yml

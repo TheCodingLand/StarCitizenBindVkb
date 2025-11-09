@@ -318,15 +318,18 @@ def test_unsupported_actions_label_updates(main_window: ControlMapperApp) -> Non
 def test_validation_status_label(main_window: ControlMapperApp) -> None:
     """Validation status label reflects report severity."""
     main_window.update_validation_status_indicator(None)
+    assert main_window.binding_validation_report is None
     assert main_window.validation_status_label.text() == "Binding status: Not evaluated"
 
     report = ValidationReport()
     report.add(ValidationIssue(level="warning", message="example warning"))
     main_window.update_validation_status_indicator(report)
+    assert main_window.binding_validation_report is report
     assert main_window.validation_status_label.text() == "Binding status: 1 warning(s)"
 
     report = ValidationReport()
     report.add(ValidationIssue(level="error", message="example error"))
     report.add(ValidationIssue(level="ERROR", message="another"))
     main_window.update_validation_status_indicator(report)
+    assert main_window.binding_validation_report is report
     assert main_window.validation_status_label.text() == "Binding status: 2 error(s)"

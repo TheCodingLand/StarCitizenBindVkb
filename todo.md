@@ -4,7 +4,8 @@
 - [x] Exercise the new `uv` workflow (`uv sync`, `uv run`). _Next:_ remove or document `requirements.txt` deprecation.
 - [x] Capture locking/release strategy (e.g. `uv lock`) and wire it into CI. `uv.lock` now checked in; add CI step later.
 - [ ] Validate the Nuitka build script on Windows and produce a distributable artifact. *(Blocked pending service/domain refactor.)*
-- [ ] Decide whether the Nuitka build should be `onefile` or directory based for faster launches.
+- [ ] the Nuitka build should be `onefile`
+- [x] fix github actions errors This request has been automatically failed because it uses a deprecated version of `actions/upload-artifact: v3`
 - [ ] Add packaging docs to `README.md` once the build path is confirmed.
 
 ## Codebase Cleanup

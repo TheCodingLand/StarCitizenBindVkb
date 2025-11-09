@@ -423,6 +423,8 @@ class ControlMapperApp(QMainWindow):
             self.unsupported_actions_label.setStyleSheet("color: #666666;")
 
     def update_validation_status_indicator(self, report: Optional[ValidationReport]) -> None:
+        self.binding_validation_report = report
+
         if report is None:
             self.validation_status_label.setText("Binding status: Not evaluated")
             self.validation_status_label.setStyleSheet("color: #666666;")
@@ -883,7 +885,6 @@ class ControlMapperApp(QMainWindow):
         desired_profile = self.build_control_profile_snapshot()
         plan = self.binding_planner.plan_from_profile(desired_profile)
         report = self.binding_planner.validate_plan(plan)
-        self.binding_validation_report = report
         self._log_binding_validation_report(report)
 
         for binding in plan.to_remove:
