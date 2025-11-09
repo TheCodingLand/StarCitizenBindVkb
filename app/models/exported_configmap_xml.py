@@ -1,20 +1,21 @@
+"""Handles the configuration files exported in xml format from Star Citizen"""
+
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, TypeVar
 from xmltodict import parse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from models.actions import get_all_defined_game_actions
+from app.models.full_game_control_options import get_all_defined_game_actions
 
-#{'ActionProfiles': {'@version': '1', '@optionsVersion': '2', '@rebindVersion': '2', '@profileName': 'default', 'deviceoptions': {...}, 'options': [...], 'modifiers': None, 'actionmap': [...]}}
-
-
+TItem = TypeVar("TItem")
 
 class Device(BaseModel):
     instance: str = Field(..., alias="@instance")
 
 class Category(BaseModel):
     label: str = Field(..., alias="@label")
+
 class CategoryList(BaseModel):
     category: List[Category | None] 
 
@@ -23,7 +24,7 @@ class CustomisationUIHeader(BaseModel):
     description: str = Field("", alias="@description")
     image: str = Field("", alias="@image")
     devices: List[Dict[str, List[Device]]] = Field(..., alias="devices")
-    categories: List[CategoryList| None] = Field([], alias="categories")
+    categories: List[CategoryList | None] = Field([], alias="categories")
 
 class Joystick(BaseModel):
     type: str
@@ -33,10 +34,8 @@ class Joystick(BaseModel):
 
 class Rebind(BaseModel):
     model_config = ConfigDict(extra='allow', populate_by_name=True)
-    # {'@input': 'js2_button25'}
     input: str = Field(..., alias="@input")
     multitap: Optional[int] = Field(default=None, alias="@multiTap")
-
 
 class Action(BaseModel):
     model_config = ConfigDict(extra='allow', populate_by_name=True)
@@ -44,7 +43,7 @@ class Action(BaseModel):
     title: Optional[str] = Field(None, alias="@title")
     rebind: List[Rebind] = Field([])
 
-TItem = TypeVar("TItem")
+
 class ActionMap(BaseModel):
     model_config = ConfigDict(extra='forbid', populate_by_name=True)
     name : str = Field(..., alias="@name")
@@ -79,7 +78,7 @@ class ActionProfile(BaseModel):
     optionsVersion: int = Field(..., alias="@optionsVersion")
     rebindVersion: int = Field(..., alias="@rebindVersion")
     profileName: str = Field(..., alias="@profileName")
-    deviceoptions: List[ DeviceOptions] = Field([], alias="deviceoptions")
+    deviceoptions: List[DeviceOptions] = Field([], alias="deviceoptions")
     options: List[Option] = Field(..., alias="options")
     modifiers: Any = Field(..., alias="modifiers")
     actionmap: List[ActionMap] = Field(..., alias="actionmap")
@@ -116,20 +115,7 @@ class JoystickBind(BaseModel):
     action: str 
     @classmethod
     def from_rebind(cls, bind: Rebind) -> "JoystickBind":
-        # ex : 'js2_button8'}
-        """
-        </action>
-        <action name="v_afterburner">
-            <rebind input="js2_button3"/>
-        </action>
-        <action name="v_atc_loading_area_request">
-            <rebind input="js2_button4" multiTap="2"/>
-        </action>
-        <rebind input="js1_rctrl+button10"/>
-        <action name=v_target_toggle_pin_index_1_hold>
-            <rebind input="js1_button10"/>
-        </action>
-        """
+        
         if "+" in bind.input:
             modifier_str, action = bind.input.split("+")
             modifier = "MODIFIER"
@@ -140,11 +126,10 @@ class JoystickBind(BaseModel):
         return cls(axis_or_button=bind.input, modifier_str=modifier_str, modifier=modifier, action=action)
 
 
-def get_exported_action_map_file(action_maps_file_source: str) -> ExportedActionMapsFile:
-    return ExportedActionMapsFile(**get_action_maps_file(action_maps_file_source))
-
 def get_action_maps_object(action_maps_file_source: str) -> ExportedActionMapsFile:
     return ExportedActionMapsFile(**get_action_maps_file(action_maps_file_source))
+
+
 
 if __name__ == "__main__":
     

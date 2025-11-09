@@ -1,5 +1,10 @@
-from typing import  Dict, List, TypeVar
+import json
+from pathlib import Path
+from typing import  Dict, List, Literal, TypeVar
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
+from typing import Dict, List
+from app.globals import APP_PATH
+
 
 # control map models imported from star citizen
 
@@ -10,11 +15,9 @@ class CustomBaseModel(BaseModel):
     model_config = ConfigDict(extra='forbid', populate_by_name=True)
 
 class Input(CustomBaseModel):
-    
     input: str = Field(..., alias="@input")
 
 class DeviceActivation(CustomBaseModel):
-    
     activationmode: str | None = Field(None, alias="@activationMode")
     input: str |None = Field(None, alias="@input")
     no_modifiers: str | None = Field(None, alias="@noModifiers")
@@ -33,15 +36,13 @@ class DeviceActivation(CustomBaseModel):
     
 
 class State(CustomBaseModel):    
-  
     name: str = Field(..., alias="@name")
     ui_label: str | None = Field(None, alias="@UILabel")
     
     
 class States(CustomBaseModel):
-    #{'states': {'state': [...]}, '@name': 'v_toggle_all_doors', '@activationMode': 'press', '@keyboard': ' ', '@gamepad': ' ', '@joystick': ' ', '@UILabel': '@ui_CICockpitDoorsToggleAll', '@UIDescription': '@ui_CICockpitDoorsToggleAllDesc', '@Category': 'VehicleActions'}
- 
     state: List[State] = Field(...)
+
 class GameAction(CustomBaseModel):  
     model_config = ConfigDict(extra='forbid', populate_by_name=True)
     name: str = Field(..., alias="@name")
@@ -85,8 +86,6 @@ class GameAction(CustomBaseModel):
             data['@activationMode'] = data.pop("@ActivationMode") # bugs in xml
         if "@activationmode" in data:
             data['@activationMode'] = data.pop("@activationmode") # bugs in xml
-        
-
         if "@gamepad" in data:
             data['gamepad'] = data.pop("@gamepad")
         if "@joystick" in data:
@@ -98,9 +97,6 @@ class GameAction(CustomBaseModel):
 
         return data
     
-
-
-
 class GameActionMap(CustomBaseModel):
    
     name: str = Field(..., alias="@name")
@@ -130,3 +126,37 @@ class GameActionMap(CustomBaseModel):
         
 AllActionMaps = RootModel[Dict[str, GameActionMap]]
     
+
+def get_sc_actionmaps_path(install_type: Literal['LIVE', 'PTU', 'EPTU']= 'LIVE', sc_version: str = "sc-alpha-3.24.2-9381373") -> Path:
+    return APP_PATH / 'data' / install_type / sc_version / f"actionmap.json"
+
+
+def get_all_defined_game_actions(sc_actionmaps_path: Path = get_sc_actionmaps_path()) -> Dict[str, List[GameAction]]:
+    # returns action names str, adds main_category and sub_category to the actionmap
+    output= {}
+
+    actionmaps: Dict[str, Dict[str, Dict[str, str]]] = json.loads(sc_actionmaps_path.read_text())
+    aam = AllActionMaps.model_validate(actionmaps)
+    for main_cat, actionmap in aam.root.items():
+        sub_category = actionmap.name
+        for action in actionmap.action:
+            if action.name not in output:
+                output[action.name] = []
+            output[action.name].append(GameAction(main_category=main_cat, sub_category=sub_category, **action.model_dump(exclude_none=True)))
+    return output
+
+
+def get_all_subcategories_actions(sc_actionmaps_path: Path = get_sc_actionmaps_path()) -> AllActionMaps:
+    actionmaps: Dict[str, Dict[str, Dict[str, str]]] = json.loads(sc_actionmaps_path.read_text())
+    aam = AllActionMaps.model_validate(actionmaps)
+    return aam
+
+
+
+if __name__ == "__main__":
+    x= get_all_defined_game_actions()
+    print (x)
+    for action in x.values():
+        if action.joystick and action.joystick not in [' ', '',None]:
+            print (action.name)
+            print(action.joystick)

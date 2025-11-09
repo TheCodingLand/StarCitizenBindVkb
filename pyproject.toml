@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "citizenbindvkb"
+version = "0.1.0"
+description = "Toolkit for managing Star Citizen joystick bindings with a PyQt6 UI."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+	"pydantic>=2.6.0",
+	"pydantic-settings>=2.3.0",
+	"PyQt6>=6.6.0",
+	"rich>=13.7.0",
+	"xmltodict>=0.13.0",
+	"pygame"
+]
+
+[project.optional-dependencies]
+dev = [
+	"pytest>=8.3.0",
+	"pytest-qt>=4.4.0",
+	"pytest-cov>=5.0.0",
+	"ruff>=0.5.0",
+	"mypy>=1.10.0",
+	"nuitka>=2.4.0",
+]
+
+[project.urls]
+homepage = "https://github.com/TheCodingLand/StarCitizenBindVkb"
+repository = "https://github.com/TheCodingLand/StarCitizenBindVkb"
+
+[project.scripts]
+citizenbindvkb = "main:main"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = [
+	"tests*",
+	"build*",
+	"conda_envs*",
+	"models*",
+	"__pycache__*",
+]
+
+[tool.nuitka]
+main = "app/ui.py"
+standalone = true
+onefile = true
+enable-plugin = ["pyqt6"]
+include-data-dir = ["app/data=app/data"]
+output-dir = "dist/nuitka"
+windows-disable-console = true
+
+[tool.pytest.ini_options]
+minversion = 6.0
+pythonpath = ". app"
+addopts = "tests -v -o log_cli=true -o log_cli_level=DEBUG -W ignore"

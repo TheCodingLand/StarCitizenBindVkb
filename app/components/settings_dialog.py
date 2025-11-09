@@ -9,8 +9,17 @@ from PyQt6.QtWidgets import QDialog, QFormLayout, QLineEdit, QSpinBox, QDialogBu
 
 from app.config import Config
 
+from app.utils.devices import get_controller_devices #returns List[SystemDevices]
 
-
+""" #for reference
+class SystemDevice(BaseModel):
+    name: str
+    instance: int
+    product_guid: str
+    product_name: str
+    num_axes: int
+    num_buttons: int
+"""
 
 class SettingsDialog(QDialog):
     def __init__(self, config: Config, parent: Optional[QWidget] = None):

@@ -1,0 +1,2 @@
+[console_scripts]
+citizenbindvkb = main:main

@@ -5,7 +5,7 @@ import pytest
 from PyQt6.QtWidgets import QApplication, QDialogButtonBox, QMessageBox
 from PyQt6.QtCore import Qt
 from app.ui import ControlMapperApp
-from app.models.settings_dialog import SettingsDialog
+from app.components.settings_dialog import SettingsDialog
 from app.config import Config
 from pathlib import Path
 import pytestqt.qtbot

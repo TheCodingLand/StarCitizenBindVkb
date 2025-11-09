@@ -5,7 +5,7 @@ import json
 from typing import Literal, Union
 from pathlib import Path
 import os
-from app.models.game_control_map import GameActionMap
+from app.models.full_game_control_options import GameActionMap
 
 current_folder = Path(__file__).parent.parent
 

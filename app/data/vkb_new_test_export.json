@@ -1,0 +1,2144 @@
+{
+    "VKB": {
+        "devices": {
+            "1": {
+                "name": "VKB Gladiator Left",
+                "side": "left",
+                "configmap_instance": 1,
+                "device_instance": 1,
+                "displaymode": "full",
+                "background_image": "vkb_new.png",
+                "image_height": 800,
+                "image_width": 1920,
+                "buttons": {
+                    "hat1_up": {
+                        "mappings": {},
+                        "name": "hat1_up",
+                        "x": 265,
+                        "y": 52
+                    },
+                    "hat1_up_right": {
+                        "mappings": {},
+                        "name": "hat1_up_right",
+                        "x": 457,
+                        "y": 52
+                    },
+                    "hat1_up_left": {
+                        "mappings": {},
+                        "name": "hat1_up_left",
+                        "x": 71,
+                        "y": 52
+                    },
+                    "hat1_left": {
+                        "mappings": {},
+                        "name": "hat1_left",
+                        "x": 71,
+                        "y": 87
+                    },
+                    "hat1_right": {
+                        "mappings": {},
+                        "name": "hat1_right",
+                        "x": 457,
+                        "y": 87
+                    },
+                    "hat1_down_left": {
+                        "mappings": {},
+                        "name": "hat1_down_left",
+                        "x": 71,
+                        "y": 122
+                    },
+                    "hat1_down": {
+                        "mappings": {},
+                        "name": "hat1_down",
+                        "x": 265,
+                        "y": 122
+                    },
+                    "hat1_down_right": {
+                        "mappings": {},
+                        "name": "hat1_down_right",
+                        "x": 457,
+                        "y": 122
+                    },
+                    "button1": {
+                        "mappings": {
+                            "button1-spaceship_quantum-False-False-True-False": {
+                                "usage_category": "spaceship_quantum",
+                                "input": "js1_button1",
+                                "game_action": {
+                                    "name": "v_toggle_qdrive_engagement",
+                                    "activation_mode": "delayed_press",
+                                    "keyboard": "mouse1",
+                                    "mouse": null,
+                                    "gamepad": "triggerr_btn",
+                                    "joystick": "button1",
+                                    "states": {
+                                        "state": [
+                                            {
+                                                "name": "on",
+                                                "ui_label": "@vehicle_interactor_QuantumTravel_Disable"
+                                            },
+                                            {
+                                                "name": "off",
+                                                "ui_label": "@vehicle_interactor_QuantumTravel_Enable"
+                                            }
+                                        ]
+                                    },
+                                    "ui_category": null,
+                                    "ui_description": "@ui_v_toggle_qdrive_engagement_desc",
+                                    "ui_label": "@ui_v_toggle_qdrive_engagement",
+                                    "category": "ShipSystems",
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_quantum",
+                                    "sub_category": "spaceship_quantum"
+                                },
+                                "rebind": {
+                                    "input": "js1_button1",
+                                    "multitap": null
+                                }
+                            },
+                            "button1-spaceship_mining-True-False-False-False": {
+                                "usage_category": "spaceship_mining",
+                                "input": "js1_button1",
+                                "game_action": {
+                                    "name": "v_toggle_mining_laser_fire",
+                                    "activation_mode": "smart_toggle",
+                                    "keyboard": "mouse1",
+                                    "mouse": null,
+                                    "gamepad": {
+                                        "activationmode": "tap",
+                                        "input": "shoulderr",
+                                        "no_modifiers": null,
+                                        "on_hold": null,
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button1",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIToggleMiningLaserFireDesc",
+                                    "ui_label": "@ui_CIToggleMiningLaserFire",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_mining",
+                                    "sub_category": "spaceship_mining"
+                                },
+                                "rebind": {
+                                    "input": "js1_button1",
+                                    "multitap": null
+                                }
+                            },
+                            "button1-spaceship_salvage-True-False-False-False": {
+                                "usage_category": "spaceship_salvage",
+                                "input": "js1_button1",
+                                "game_action": {
+                                    "name": "v_salvage_toggle_fire_focused",
+                                    "activation_mode": "smart_toggle",
+                                    "keyboard": " ",
+                                    "mouse": "mouse1",
+                                    "gamepad": {
+                                        "activationmode": "tap",
+                                        "input": "shoulderr",
+                                        "no_modifiers": null,
+                                        "on_hold": null,
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button1",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CISalvageFireToggleFocusedDesc",
+                                    "ui_label": "@ui_CISalvageFireToggleFocused",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_salvage",
+                                    "sub_category": "spaceship_salvage"
+                                },
+                                "rebind": {
+                                    "input": "js1_button1",
+                                    "multitap": null
+                                }
+                            },
+                            "button1-spaceship_weapons-True-False-False-False": {
+                                "usage_category": "spaceship_weapons",
+                                "input": "js1_button1",
+                                "game_action": {
+                                    "name": "v_weapon_preset_prev",
+                                    "activation_mode": "press",
+                                    "keyboard": "mwheel_up",
+                                    "mouse": null,
+                                    "gamepad": "triggerr_btn",
+                                    "joystick": "button1",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_v_weapon_preset_prev_desc",
+                                    "ui_label": "@ui_v_weapon_preset_prev",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_weapons",
+                                    "sub_category": "spaceship_weapons"
+                                },
+                                "rebind": {
+                                    "input": "js1_button1",
+                                    "multitap": null
+                                }
+                            },
+                            "button1-spaceship_missiles-True-False-False-False": {
+                                "usage_category": "spaceship_missiles",
+                                "input": "js1_button1",
+                                "game_action": {
+                                    "name": "v_weapon_toggle_launch_missile",
+                                    "activation_mode": "press",
+                                    "keyboard": "mouse1",
+                                    "mouse": null,
+                                    "gamepad": "triggerr_btn",
+                                    "joystick": "button1",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIMissiles_LaunchToggleDesc",
+                                    "ui_label": "@ui_CIMissiles_LaunchToggle",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_missiles",
+                                    "sub_category": "spaceship_missiles"
+                                },
+                                "rebind": {
+                                    "input": "js1_button1",
+                                    "multitap": null
+                                }
+                            },
+                            "button1-spectator-True-False-False-False": {
+                                "usage_category": "spectator",
+                                "input": "js1_button1",
+                                "game_action": {
+                                    "name": "spectate_next_target",
+                                    "activation_mode": "press",
+                                    "keyboard": " ",
+                                    "mouse": "mouse2",
+                                    "gamepad": "dpad_right",
+                                    "joystick": "button1",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CISpectatorTargetNextDesc",
+                                    "ui_label": "@ui_CISpectatorTargetNext",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spectator",
+                                    "sub_category": "spectator"
+                                },
+                                "rebind": {
+                                    "input": "js1_button1",
+                                    "multitap": null
+                                }
+                            },
+                            "button1-default-True-False-False-False": {
+                                "usage_category": "default",
+                                "input": "js1_button1",
+                                "game_action": {
+                                    "name": "respawn",
+                                    "activation_mode": "all",
+                                    "keyboard": "f",
+                                    "mouse": null,
+                                    "gamepad": "x",
+                                    "joystick": "button1",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIRespawnDesc",
+                                    "ui_label": "@ui_CIRespawn",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "default",
+                                    "sub_category": "default"
+                                },
+                                "rebind": {
+                                    "input": "js1_button1",
+                                    "multitap": null
+                                }
+                            },
+                            "button1-player_choice-True-False-False-False": {
+                                "usage_category": "player_choice",
+                                "input": "js1_button1",
+                                "game_action": {
+                                    "name": "pc_select",
+                                    "activation_mode": null,
+                                    "keyboard": " ",
+                                    "mouse": "mouse1",
+                                    "gamepad": "shoulderr",
+                                    "joystick": "button1",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIInteractionActivateDesc",
+                                    "ui_label": "@ui_CIInteractionActivate",
+                                    "category": null,
+                                    "on_press": "1",
+                                    "on_hold": "1",
+                                    "on_release": "1",
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "player_choice",
+                                    "sub_category": "player_choice"
+                                },
+                                "rebind": {
+                                    "input": "js1_button1",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button1",
+                        "x": 1545,
+                        "y": 334
+                    },
+                    "button2": {
+                        "mappings": {
+                            "button2-spaceship_mining-True-False-False-False": {
+                                "usage_category": "spaceship_mining",
+                                "input": "js1_button2",
+                                "game_action": {
+                                    "name": "v_toggle_mining_laser_type",
+                                    "activation_mode": "press",
+                                    "keyboard": "lalt+mouse1",
+                                    "mouse": null,
+                                    "gamepad": {
+                                        "activationmode": "tap",
+                                        "input": "shoulderl+shoulderr",
+                                        "no_modifiers": null,
+                                        "on_hold": null,
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button2",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIToggleMiningLaserTypeDesc",
+                                    "ui_label": "@ui_CIToggleMiningLaserType",
+                                    "category": "MiningMode",
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_mining",
+                                    "sub_category": "spaceship_mining"
+                                },
+                                "rebind": {
+                                    "input": "js1_button2",
+                                    "multitap": null
+                                }
+                            },
+                            "button2-spaceship_missiles-True-False-False-False": {
+                                "usage_category": "spaceship_missiles",
+                                "input": "js1_button2",
+                                "game_action": {
+                                    "name": "v_weapon_cycle_missile_fwd",
+                                    "activation_mode": "press",
+                                    "keyboard": "mwheel_down",
+                                    "mouse": null,
+                                    "gamepad": "triggerl_btn",
+                                    "joystick": "button2",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIMissiles_CycleFwdDesc",
+                                    "ui_label": "@ui_CIMissiles_CycleFwd",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_missiles",
+                                    "sub_category": "spaceship_missiles"
+                                },
+                                "rebind": {
+                                    "input": "js1_button2",
+                                    "multitap": null
+                                }
+                            },
+                            "button2-spectator-True-False-False-False": {
+                                "usage_category": "spectator",
+                                "input": "js1_button2",
+                                "game_action": {
+                                    "name": "spectate_prev_target",
+                                    "activation_mode": "press",
+                                    "keyboard": " ",
+                                    "mouse": "mouse1",
+                                    "gamepad": "dpad_left",
+                                    "joystick": "button2",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CISpectatorTargetPrevDesc",
+                                    "ui_label": "@ui_CISpectatorTargetPrev",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spectator",
+                                    "sub_category": "spectator"
+                                },
+                                "rebind": {
+                                    "input": "js1_button2",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button2",
+                        "x": 1545,
+                        "y": 365
+                    },
+                    "button3": {
+                        "mappings": {
+                            "button3-spaceship_scanning-True-False-False-False": {
+                                "usage_category": "spaceship_scanning",
+                                "input": "js1_button3",
+                                "game_action": {
+                                    "name": "v_inc_scan_focus_level",
+                                    "activation_mode": "press",
+                                    "keyboard": " ",
+                                    "mouse": "mwheel_up",
+                                    "gamepad": {
+                                        "activationmode": null,
+                                        "input": "triggerr_btn",
+                                        "no_modifiers": null,
+                                        "on_hold": "1",
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button3",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIScanningRadarAngIncDesc",
+                                    "ui_label": "@ui_CIScanningRadarAngInc",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_scanning",
+                                    "sub_category": "spaceship_scanning"
+                                },
+                                "rebind": {
+                                    "input": "js1_button3",
+                                    "multitap": null
+                                }
+                            },
+                            "button3-spaceship_mining-True-False-False-False": {
+                                "usage_category": "spaceship_mining",
+                                "input": "js1_button3",
+                                "game_action": {
+                                    "name": "v_increase_mining_throttle",
+                                    "activation_mode": "press",
+                                    "keyboard": "maxis_z",
+                                    "mouse": "",
+                                    "gamepad": {
+                                        "activationmode": null,
+                                        "input": "triggerr_btn",
+                                        "no_modifiers": null,
+                                        "on_hold": "1",
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button3",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIIncreaseMiningThrottleDesc",
+                                    "ui_label": "@ui_CIIncreaseMiningThrottle",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_mining",
+                                    "sub_category": "spaceship_mining"
+                                },
+                                "rebind": {
+                                    "input": "js1_button3",
+                                    "multitap": null
+                                }
+                            },
+                            "button3-spaceship_defensive-True-False-False-False": {
+                                "usage_category": "spaceship_defensive",
+                                "input": "js1_button3",
+                                "game_action": {
+                                    "name": "v_weapon_countermeasure_decoy_launch",
+                                    "activation_mode": null,
+                                    "keyboard": "h",
+                                    "mouse": null,
+                                    "gamepad": "x",
+                                    "joystick": "button3",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CI_Countermeasures_Launch_DecoyDesc",
+                                    "ui_label": "@ui_CI_Countermeasures_Launch_Decoy",
+                                    "category": null,
+                                    "on_press": "1",
+                                    "on_hold": "1",
+                                    "on_release": "1",
+                                    "hold_trigger_delay": "0.25",
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_defensive",
+                                    "sub_category": "spaceship_defensive"
+                                },
+                                "rebind": {
+                                    "input": "js1_button3",
+                                    "multitap": null
+                                }
+                            },
+                            "button3-tractor_beam-True-False-False-False": {
+                                "usage_category": "tractor_beam",
+                                "input": "js1_button3",
+                                "game_action": {
+                                    "name": "tractor_beam_increase_distance",
+                                    "activation_mode": "press",
+                                    "keyboard": " ",
+                                    "mouse": "mwheel_up",
+                                    "gamepad": {
+                                        "activationmode": null,
+                                        "input": "shoulderr",
+                                        "no_modifiers": null,
+                                        "on_hold": "1",
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button3",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIFPSTractorBeamIncreaseDistanceDesc",
+                                    "ui_label": "@ui_CIFPSTractorBeamIncreaseDistance",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "tractor_beam",
+                                    "sub_category": "tractor_beam"
+                                },
+                                "rebind": {
+                                    "input": "js1_button3",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button3",
+                        "x": 457,
+                        "y": 260
+                    },
+                    "button4": {
+                        "mappings": {
+                            "button4-spaceship_scanning-True-False-False-False": {
+                                "usage_category": "spaceship_scanning",
+                                "input": "js1_button4",
+                                "game_action": {
+                                    "name": "v_dec_scan_focus_level",
+                                    "activation_mode": "press",
+                                    "keyboard": " ",
+                                    "mouse": "mwheel_down",
+                                    "gamepad": {
+                                        "activationmode": null,
+                                        "input": "triggerl_btn",
+                                        "no_modifiers": null,
+                                        "on_hold": "1",
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button4",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIScanningRadarAngDecDesc",
+                                    "ui_label": "@ui_CIScanningRadarAngDec",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_scanning",
+                                    "sub_category": "spaceship_scanning"
+                                },
+                                "rebind": {
+                                    "input": "js1_button4",
+                                    "multitap": null
+                                }
+                            },
+                            "button4-spaceship_mining-True-False-False-False": {
+                                "usage_category": "spaceship_mining",
+                                "input": "js1_button4",
+                                "game_action": {
+                                    "name": "v_decrease_mining_throttle",
+                                    "activation_mode": "press",
+                                    "keyboard": " ",
+                                    "mouse": "",
+                                    "gamepad": {
+                                        "activationmode": null,
+                                        "input": "triggerl_btn",
+                                        "no_modifiers": null,
+                                        "on_hold": "1",
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button4",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIDecreaseMiningThrottleDesc",
+                                    "ui_label": "@ui_CIDecreaseMiningThrottle",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_mining",
+                                    "sub_category": "spaceship_mining"
+                                },
+                                "rebind": {
+                                    "input": "js1_button4",
+                                    "multitap": null
+                                }
+                            },
+                            "button4-tractor_beam-True-False-False-False": {
+                                "usage_category": "tractor_beam",
+                                "input": "js1_button4",
+                                "game_action": {
+                                    "name": "tractor_beam_decrease_distance",
+                                    "activation_mode": "press",
+                                    "keyboard": " ",
+                                    "mouse": "mwheel_down",
+                                    "gamepad": {
+                                        "activationmode": null,
+                                        "input": "shoulderl",
+                                        "no_modifiers": null,
+                                        "on_hold": "1",
+                                        "inputdata": null,
+                                        "on_press": null,
+                                        "on_release": null
+                                    },
+                                    "joystick": "button4",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIFPSTractorBeamDecreaseDistanceDesc",
+                                    "ui_label": "@ui_CIFPSTractorBeamDecreaseDistance",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "tractor_beam",
+                                    "sub_category": "tractor_beam"
+                                },
+                                "rebind": {
+                                    "input": "js1_button4",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button4",
+                        "x": 1545,
+                        "y": 190
+                    },
+                    "button5": {
+                        "mappings": {
+                            "button5-spaceship_defensive-True-False-False-False": {
+                                "usage_category": "spaceship_defensive",
+                                "input": "js1_button5",
+                                "game_action": {
+                                    "name": "v_weapon_countermeasure_noise_launch",
+                                    "activation_mode": "press",
+                                    "keyboard": "j",
+                                    "mouse": null,
+                                    "gamepad": " ",
+                                    "joystick": "button5",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CI_Countermeasures_Launch_NoiseDesc",
+                                    "ui_label": "@ui_CI_Countermeasures_Launch_Noise",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_defensive",
+                                    "sub_category": "spaceship_defensive"
+                                },
+                                "rebind": {
+                                    "input": "js1_button5",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button5",
+                        "x": 1545,
+                        "y": 419
+                    },
+                    "button6": {
+                        "mappings": {
+                            "button6-player_choice-True-False-False-False": {
+                                "usage_category": "player_choice",
+                                "input": "js1_button6",
+                                "game_action": {
+                                    "name": "pc_interaction_mode",
+                                    "activation_mode": null,
+                                    "keyboard": "f",
+                                    "mouse": null,
+                                    "gamepad": {
+                                        "activationmode": null,
+                                        "input": "shoulderr",
+                                        "no_modifiers": null,
+                                        "on_hold": "1",
+                                        "inputdata": null,
+                                        "on_press": "0",
+                                        "on_release": "1"
+                                    },
+                                    "joystick": "button6",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIInteractionModeDesc",
+                                    "ui_label": "@ui_CIInteractionMode",
+                                    "category": null,
+                                    "on_press": "0",
+                                    "on_hold": "1",
+                                    "on_release": "1",
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "player_choice",
+                                    "sub_category": "player_choice"
+                                },
+                                "rebind": {
+                                    "input": "js1_button6",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button6",
+                        "x": 265,
+                        "y": 524
+                    },
+                    "button7": {
+                        "mappings": {
+                            "button7-vehicle_driver-True-False-False-False": {
+                                "usage_category": "vehicle_driver",
+                                "input": "js1_button7",
+                                "game_action": {
+                                    "name": "v_brake",
+                                    "activation_mode": "hold",
+                                    "keyboard": "x",
+                                    "mouse": null,
+                                    "gamepad": "shoulderl+thumbr",
+                                    "joystick": "button7",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIVehicleBrakeDesc",
+                                    "ui_label": "@ui_CIVehicleBrake",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "vehicle_driver",
+                                    "sub_category": "vehicle_driver"
+                                },
+                                "rebind": {
+                                    "input": "js1_button7",
+                                    "multitap": null
+                                }
+                            },
+                            "button7-player_choice-True-False-False-False": {
+                                "usage_category": "player_choice",
+                                "input": "js1_button7",
+                                "game_action": {
+                                    "name": "pc_focus",
+                                    "activation_mode": "tap",
+                                    "keyboard": " ",
+                                    "mouse": "mouse3",
+                                    "gamepad": "triggerl_btn",
+                                    "joystick": "button7",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIInteractionFocusDesc",
+                                    "ui_label": "@ui_CIInteractionFocus",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "player_choice",
+                                    "sub_category": "player_choice"
+                                },
+                                "rebind": {
+                                    "input": "js1_button7",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button7",
+                        "x": 457,
+                        "y": 560
+                    },
+                    "button8": {
+                        "mappings": {
+                            "button8-spaceship_movement-True-False-False-False": {
+                                "usage_category": "spaceship_movement",
+                                "input": "js1_button8",
+                                "game_action": {
+                                    "name": "v_afterburner",
+                                    "activation_mode": "all",
+                                    "keyboard": "lshift",
+                                    "mouse": null,
+                                    "gamepad": "thumbl",
+                                    "joystick": "button8",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIAfterburnerDesc",
+                                    "ui_label": "@ui_CIAfterburner",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_movement",
+                                    "sub_category": "spaceship_movement"
+                                },
+                                "rebind": {
+                                    "input": "js1_button8",
+                                    "multitap": null
+                                }
+                            },
+                            "button8-vehicle_general-True-False-False-False": {
+                                "usage_category": "vehicle_general",
+                                "input": "js1_button8",
+                                "game_action": {
+                                    "name": "v_horn",
+                                    "activation_mode": null,
+                                    "keyboard": "space",
+                                    "mouse": null,
+                                    "gamepad": "dpad_down",
+                                    "joystick": "button8",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIVehicleHornDesc",
+                                    "ui_label": "@ui_CIVehicleHorn",
+                                    "category": null,
+                                    "on_press": "1",
+                                    "on_hold": null,
+                                    "on_release": "1",
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "vehicle_general",
+                                    "sub_category": "vehicle_general"
+                                },
+                                "rebind": {
+                                    "input": "js1_button8",
+                                    "multitap": null
+                                }
+                            },
+                            "button8-vehicle_driver-True-False-False-False": {
+                                "usage_category": "vehicle_driver",
+                                "input": "js1_button8",
+                                "game_action": {
+                                    "name": "v_boost",
+                                    "activation_mode": "all",
+                                    "keyboard": "lshift",
+                                    "mouse": null,
+                                    "gamepad": "thumbl",
+                                    "joystick": "button8",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIboostDesc",
+                                    "ui_label": "@ui_CIboost",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "vehicle_driver",
+                                    "sub_category": "vehicle_driver"
+                                },
+                                "rebind": {
+                                    "input": "js1_button8",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button8",
+                        "x": 265,
+                        "y": 592
+                    },
+                    "button9": {
+                        "mappings": {
+                            "button9-spaceship_movement-True-False-False-False": {
+                                "usage_category": "spaceship_movement",
+                                "input": "js1_button9",
+                                "game_action": {
+                                    "name": "v_strafe_up",
+                                    "activation_mode": null,
+                                    "keyboard": "space",
+                                    "mouse": null,
+                                    "gamepad": " ",
+                                    "joystick": "button9",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIStrafeUpDesc",
+                                    "ui_label": "@ui_CIStrafeUp",
+                                    "category": null,
+                                    "on_press": "1",
+                                    "on_hold": null,
+                                    "on_release": "1",
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "flight_move_strafe_vertical",
+                                    "always": "1",
+                                    "main_category": "spaceship_movement",
+                                    "sub_category": "spaceship_movement"
+                                },
+                                "rebind": {
+                                    "input": "js1_button9",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button9",
+                        "x": 71,
+                        "y": 560
+                    },
+                    "button10": {
+                        "mappings": {
+                            "button10-spaceship_movement-True-False-False-False": {
+                                "usage_category": "spaceship_movement",
+                                "input": "js1_button10",
+                                "game_action": {
+                                    "name": "v_strafe_down",
+                                    "activation_mode": null,
+                                    "keyboard": "lctrl",
+                                    "mouse": null,
+                                    "gamepad": " ",
+                                    "joystick": "button10",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIStrafeDownDesc",
+                                    "ui_label": "@ui_CIStrafeDown",
+                                    "category": null,
+                                    "on_press": "1",
+                                    "on_hold": null,
+                                    "on_release": "1",
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "flight_move_strafe_vertical",
+                                    "always": "1",
+                                    "main_category": "spaceship_movement",
+                                    "sub_category": "spaceship_movement"
+                                },
+                                "rebind": {
+                                    "input": "js1_button10",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button10",
+                        "x": 265,
+                        "y": 560
+                    },
+                    "button11": {
+                        "mappings": {},
+                        "name": "button11",
+                        "x": 265,
+                        "y": 367
+                    },
+                    "button12": {
+                        "mappings": {
+                            "button12-spaceship_movement-True-False-False-False": {
+                                "usage_category": "spaceship_movement",
+                                "input": "js1_button12",
+                                "game_action": {
+                                    "name": "v_toggle_landing_system",
+                                    "activation_mode": "tap",
+                                    "keyboard": "n",
+                                    "mouse": null,
+                                    "gamepad": "dpad_down",
+                                    "joystick": "button12",
+                                    "states": {
+                                        "state": [
+                                            {
+                                                "name": "retracted",
+                                                "ui_label": "@ui_CIToggleLandingSystem_Deploy"
+                                            },
+                                            {
+                                                "name": "deployed",
+                                                "ui_label": "@ui_CIToggleLandingSystem_Retract"
+                                            },
+                                            {
+                                                "name": "can_dock",
+                                                "ui_label": "@ui_CIToggleLandingSystem_Dock"
+                                            },
+                                            {
+                                                "name": "docking",
+                                                "ui_label": "@ui_CIToggleLandingSystem_CancelDocking"
+                                            },
+                                            {
+                                                "name": "docked",
+                                                "ui_label": "@ui_CIToggleLandingSystem_Undock"
+                                            }
+                                        ]
+                                    },
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIToggleLandingSystemDesc",
+                                    "ui_label": "@ui_CIToggleLandingSystem",
+                                    "category": "VehicleActions",
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_movement",
+                                    "sub_category": "spaceship_movement"
+                                },
+                                "rebind": {
+                                    "input": "js1_button12",
+                                    "multitap": null
+                                }
+                            },
+                            "button12-spaceship_movement-False-False-True-False": {
+                                "usage_category": "spaceship_movement",
+                                "input": "js1_button12",
+                                "game_action": {
+                                    "name": "v_autoland",
+                                    "activation_mode": "delayed_press",
+                                    "keyboard": "n",
+                                    "mouse": null,
+                                    "gamepad": "dpad_down",
+                                    "joystick": "button12",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIAutolandDesc",
+                                    "ui_label": "@ui_CIAutoland",
+                                    "category": "FlightSystems",
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": null,
+                                    "always": null,
+                                    "main_category": "spaceship_movement",
+                                    "sub_category": "spaceship_movement"
+                                },
+                                "rebind": {
+                                    "input": "js1_button12",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "button12",
+                        "x": 457,
+                        "y": 402
+                    },
+                    "button13": {
+                        "mappings": {},
+                        "name": "button13",
+                        "x": 265,
+                        "y": 437
+                    },
+                    "button14": {
+                        "mappings": {},
+                        "name": "button14",
+                        "x": 71,
+                        "y": 402
+                    },
+                    "button15": {
+                        "mappings": {},
+                        "name": "button15",
+                        "x": 265,
+                        "y": 402
+                    },
+                    "button16": {
+                        "mappings": {},
+                        "name": "button16",
+                        "x": 265,
+                        "y": 683
+                    },
+                    "button17": {
+                        "mappings": {},
+                        "name": "button17",
+                        "x": 457,
+                        "y": 718
+                    },
+                    "button18": {
+                        "mappings": {},
+                        "name": "button18",
+                        "x": 265,
+                        "y": 752
+                    },
+                    "button19": {
+                        "mappings": {},
+                        "name": "button19",
+                        "x": 71,
+                        "y": 718
+                    },
+                    "button20": {
+                        "mappings": {},
+                        "name": "button20",
+                        "x": 265,
+                        "y": 718
+                    },
+                    "button21": {
+                        "mappings": {},
+                        "name": "button21",
+                        "x": 1545,
+                        "y": 243
+                    },
+                    "button22": {
+                        "mappings": {},
+                        "name": "button22",
+                        "x": 1545,
+                        "y": 278
+                    },
+                    "button23": {
+                        "mappings": {},
+                        "name": "button23",
+                        "x": 1389,
+                        "y": 614
+                    },
+                    "button24": {
+                        "mappings": {},
+                        "name": "button24",
+                        "x": 1389,
+                        "y": 648
+                    },
+                    "button25": {
+                        "mappings": {},
+                        "name": "button25",
+                        "x": 1740,
+                        "y": 614
+                    },
+                    "button26": {
+                        "mappings": {},
+                        "name": "button26",
+                        "x": 1740,
+                        "y": 648
+                    },
+                    "button27": {
+                        "mappings": {},
+                        "name": "button27",
+                        "x": 1354,
+                        "y": 505
+                    },
+                    "button28": {
+                        "mappings": {},
+                        "name": "button28",
+                        "x": 1545,
+                        "y": 505
+                    },
+                    "button29": {
+                        "mappings": {},
+                        "name": "button29",
+                        "x": 1740,
+                        "y": 505
+                    },
+                    "z": {
+                        "mappings": {},
+                        "name": "z",
+                        "x": 1545,
+                        "y": 719
+                    },
+                    "x": {
+                        "mappings": {
+                            "x-spaceship_view-True-False-False-False": {
+                                "usage_category": "spaceship_view",
+                                "input": "js1_x",
+                                "game_action": {
+                                    "name": "v_view_yaw",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumbrx",
+                                    "joystick": "x",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIYawViewDesc",
+                                    "ui_label": "@ui_CIYawView",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "mgv_view_yaw",
+                                    "always": null,
+                                    "main_category": "vehicle_general",
+                                    "sub_category": "vehicle_general"
+                                },
+                                "rebind": {
+                                    "input": "js1_x",
+                                    "multitap": null
+                                }
+                            },
+                            "x-vehicle_general-True-False-False-False": {
+                                "usage_category": "vehicle_general",
+                                "input": "js1_x",
+                                "game_action": {
+                                    "name": "v_view_yaw",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumbrx",
+                                    "joystick": "x",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIYawViewDesc",
+                                    "ui_label": "@ui_CIYawView",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "mgv_view_yaw",
+                                    "always": null,
+                                    "main_category": "vehicle_general",
+                                    "sub_category": "vehicle_general"
+                                },
+                                "rebind": {
+                                    "input": "js1_x",
+                                    "multitap": null
+                                }
+                            },
+                            "x-spaceship_movement-True-False-False-False": {
+                                "usage_category": "spaceship_movement",
+                                "input": "js1_x",
+                                "game_action": {
+                                    "name": "v_yaw",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumblx",
+                                    "joystick": "x",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_ci_mgv_v_yaw_hotas_desc",
+                                    "ui_label": "@ui_ci_mgv_v_yaw_hotas",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "mgv_move_yaw",
+                                    "always": null,
+                                    "main_category": "vehicle_driver",
+                                    "sub_category": "vehicle_driver"
+                                },
+                                "rebind": {
+                                    "input": "js1_x",
+                                    "multitap": null
+                                }
+                            },
+                            "x-vehicle_driver-True-False-False-False": {
+                                "usage_category": "vehicle_driver",
+                                "input": "js1_x",
+                                "game_action": {
+                                    "name": "v_yaw",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumblx",
+                                    "joystick": "x",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_ci_mgv_v_yaw_hotas_desc",
+                                    "ui_label": "@ui_ci_mgv_v_yaw_hotas",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "mgv_move_yaw",
+                                    "always": null,
+                                    "main_category": "vehicle_driver",
+                                    "sub_category": "vehicle_driver"
+                                },
+                                "rebind": {
+                                    "input": "js1_x",
+                                    "multitap": null
+                                }
+                            },
+                            "x-turret_movement-True-False-False-False": {
+                                "usage_category": "turret_movement",
+                                "input": "js1_x",
+                                "game_action": {
+                                    "name": "turret_yaw",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumbrx",
+                                    "joystick": "x",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIYawDesc",
+                                    "ui_label": "@ui_CIYaw",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "turret_aim_yaw",
+                                    "always": null,
+                                    "main_category": "turret_movement",
+                                    "sub_category": "turret_movement"
+                                },
+                                "rebind": {
+                                    "input": "js1_x",
+                                    "multitap": null
+                                }
+                            },
+                            "x-spectator-True-False-False-False": {
+                                "usage_category": "spectator",
+                                "input": "js1_x",
+                                "game_action": {
+                                    "name": "spectate_rotateyaw",
+                                    "activation_mode": null,
+                                    "keyboard": " ",
+                                    "mouse": null,
+                                    "gamepad": "thumbrx",
+                                    "joystick": "x",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CISpectatorRotateYawDesc",
+                                    "ui_label": "@ui_CISpectatorRotateYaw",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "fps_view_yaw",
+                                    "always": null,
+                                    "main_category": "spectator",
+                                    "sub_category": "spectator"
+                                },
+                                "rebind": {
+                                    "input": "js1_x",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "x",
+                        "x": 950,
+                        "y": 86
+                    },
+                    "y": {
+                        "mappings": {
+                            "y-spaceship_view-True-False-False-False": {
+                                "usage_category": "spaceship_view",
+                                "input": "js1_y",
+                                "game_action": {
+                                    "name": "v_view_pitch",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumbry",
+                                    "joystick": "y",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIPitchViewDesc",
+                                    "ui_label": "@ui_CIPitchView",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "mgv_view_pitch",
+                                    "always": null,
+                                    "main_category": "vehicle_general",
+                                    "sub_category": "vehicle_general"
+                                },
+                                "rebind": {
+                                    "input": "js1_y",
+                                    "multitap": null
+                                }
+                            },
+                            "y-vehicle_general-True-False-False-False": {
+                                "usage_category": "vehicle_general",
+                                "input": "js1_y",
+                                "game_action": {
+                                    "name": "v_view_pitch",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumbry",
+                                    "joystick": "y",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIPitchViewDesc",
+                                    "ui_label": "@ui_CIPitchView",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "mgv_view_pitch",
+                                    "always": null,
+                                    "main_category": "vehicle_general",
+                                    "sub_category": "vehicle_general"
+                                },
+                                "rebind": {
+                                    "input": "js1_y",
+                                    "multitap": null
+                                }
+                            },
+                            "y-spaceship_movement-True-False-False-False": {
+                                "usage_category": "spaceship_movement",
+                                "input": "js1_y",
+                                "game_action": {
+                                    "name": "v_pitch",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumblx",
+                                    "joystick": "y",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_ci_mgv_v_pitch_hotas_desc",
+                                    "ui_label": "@ui_ci_mgv_v_pitch_hotas",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "mgv_move_pitch",
+                                    "always": null,
+                                    "main_category": "vehicle_driver",
+                                    "sub_category": "vehicle_driver"
+                                },
+                                "rebind": {
+                                    "input": "js1_y",
+                                    "multitap": null
+                                }
+                            },
+                            "y-vehicle_driver-True-False-False-False": {
+                                "usage_category": "vehicle_driver",
+                                "input": "js1_y",
+                                "game_action": {
+                                    "name": "v_pitch",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumblx",
+                                    "joystick": "y",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_ci_mgv_v_pitch_hotas_desc",
+                                    "ui_label": "@ui_ci_mgv_v_pitch_hotas",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "mgv_move_pitch",
+                                    "always": null,
+                                    "main_category": "vehicle_driver",
+                                    "sub_category": "vehicle_driver"
+                                },
+                                "rebind": {
+                                    "input": "js1_y",
+                                    "multitap": null
+                                }
+                            },
+                            "y-turret_movement-True-False-False-False": {
+                                "usage_category": "turret_movement",
+                                "input": "js1_y",
+                                "game_action": {
+                                    "name": "turret_pitch",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumbry",
+                                    "joystick": "y",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIPitchDesc",
+                                    "ui_label": "@ui_CIPitch",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "turret_aim_pitch",
+                                    "always": null,
+                                    "main_category": "turret_movement",
+                                    "sub_category": "turret_movement"
+                                },
+                                "rebind": {
+                                    "input": "js1_y",
+                                    "multitap": null
+                                }
+                            },
+                            "y-spectator-True-False-False-False": {
+                                "usage_category": "spectator",
+                                "input": "js1_y",
+                                "game_action": {
+                                    "name": "spectate_rotatepitch",
+                                    "activation_mode": null,
+                                    "keyboard": " ",
+                                    "mouse": null,
+                                    "gamepad": "thumbry",
+                                    "joystick": "y",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CISpectatorRotatePitchDesc",
+                                    "ui_label": "@ui_CISpectatorRotatePitch",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "fps_view_pitch",
+                                    "always": null,
+                                    "main_category": "spectator",
+                                    "sub_category": "spectator"
+                                },
+                                "rebind": {
+                                    "input": "js1_y",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "y",
+                        "x": 950,
+                        "y": 122
+                    },
+                    "rotz": {
+                        "mappings": {
+                            "rotz-spaceship_movement-True-False-False-False": {
+                                "usage_category": "spaceship_movement",
+                                "input": "js1_rotz",
+                                "game_action": {
+                                    "name": "v_roll",
+                                    "activation_mode": null,
+                                    "keyboard": null,
+                                    "mouse": null,
+                                    "gamepad": "thumbrx",
+                                    "joystick": "rotz",
+                                    "states": null,
+                                    "ui_category": null,
+                                    "ui_description": "@ui_CIRollDesc",
+                                    "ui_label": "@ui_CIRoll",
+                                    "category": null,
+                                    "on_press": null,
+                                    "on_hold": null,
+                                    "on_release": null,
+                                    "hold_trigger_delay": null,
+                                    "hold_repead_delay": null,
+                                    "retriggerable": null,
+                                    "use_analog_compare": null,
+                                    "analog_compare_val": null,
+                                    "analog_compare_op": null,
+                                    "no_modifiers": null,
+                                    "option_group": "flight_move_roll",
+                                    "always": null,
+                                    "main_category": "spaceship_movement",
+                                    "sub_category": "spaceship_movement"
+                                },
+                                "rebind": {
+                                    "input": "js1_rotz",
+                                    "multitap": null
+                                }
+                            }
+                        },
+                        "name": "rotz",
+                        "x": 950,
+                        "y": 155
+                    },
+                    "rotx": {
+                        "mappings": {},
+                        "name": "rotx",
+                        "x": 71,
+                        "y": 262
+                    },
+                    "roty": {
+                        "mappings": {},
+                        "name": "roty",
+                        "x": 71,
+                        "y": 295
+                    }
+                }
+            },
+            "2": {
+                "name": "VKB Gladiator Right",
+                "side": "right",
+                "configmap_instance": 2,
+                "device_instance": 2,
+                "displaymode": "full",
+                "background_image": "vkb_new.png",
+                "image_height": 800,
+                "image_width": 1920,
+                "buttons": {
+                    "hat1_up": {
+                        "mappings": {},
+                        "name": "hat1_up",
+                        "x": 1565,
+                        "y": 52
+                    },
+                    "hat1_up_right": {
+                        "mappings": {},
+                        "name": "hat1_up_right",
+                        "x": 1755,
+                        "y": 52
+                    },
+                    "hat1_up_left": {
+                        "mappings": {},
+                        "name": "hat1_up_left",
+                        "x": 1371,
+                        "y": 52
+                    },
+                    "hat1_left": {
+                        "mappings": {},
+                        "name": "hat1_left",
+                        "x": 1371,
+                        "y": 87
+                    },
+                    "hat1_right": {
+                        "mappings": {},
+                        "name": "hat1_right",
+                        "x": 1755,
+                        "y": 87
+                    },
+                    "hat1_down_left": {
+                        "mappings": {},
+                        "name": "hat1_down_left",
+                        "x": 1371,
+                        "y": 122
+                    },
+                    "hat1_down": {
+                        "mappings": {},
+                        "name": "hat1_down",
+                        "x": 1565,
+                        "y": 122
+                    },
+                    "hat1_down_right": {
+                        "mappings": {},
+                        "name": "hat1_down_right",
+                        "x": 1755,
+                        "y": 122
+                    },
+                    "button1": {
+                        "mappings": {},
+                        "name": "button1",
+                        "x": 278,
+                        "y": 334
+                    },
+                    "button2": {
+                        "mappings": {},
+                        "name": "button2",
+                        "x": 278,
+                        "y": 365
+                    },
+                    "button3": {
+                        "mappings": {},
+                        "name": "button3",
+                        "x": 1370,
+                        "y": 260
+                    },
+                    "button4": {
+                        "mappings": {},
+                        "name": "button4",
+                        "x": 278,
+                        "y": 190
+                    },
+                    "button5": {
+                        "mappings": {},
+                        "name": "button5",
+                        "x": 278,
+                        "y": 419
+                    },
+                    "button6": {
+                        "mappings": {},
+                        "name": "button6",
+                        "x": 1562,
+                        "y": 524
+                    },
+                    "button7": {
+                        "mappings": {},
+                        "name": "button7",
+                        "x": 1756,
+                        "y": 560
+                    },
+                    "button8": {
+                        "mappings": {},
+                        "name": "button8",
+                        "x": 1562,
+                        "y": 592
+                    },
+                    "button9": {
+                        "mappings": {},
+                        "name": "button9",
+                        "x": 1370,
+                        "y": 560
+                    },
+                    "button10": {
+                        "mappings": {},
+                        "name": "button10",
+                        "x": 1562,
+                        "y": 560
+                    },
+                    "button11": {
+                        "mappings": {},
+                        "name": "button11",
+                        "x": 1562,
+                        "y": 367
+                    },
+                    "button12": {
+                        "mappings": {},
+                        "name": "button12",
+                        "x": 1756,
+                        "y": 402
+                    },
+                    "button13": {
+                        "mappings": {},
+                        "name": "button13",
+                        "x": 1562,
+                        "y": 437
+                    },
+                    "button14": {
+                        "mappings": {},
+                        "name": "button14",
+                        "x": 1370,
+                        "y": 402
+                    },
+                    "button15": {
+                        "mappings": {},
+                        "name": "button15",
+                        "x": 1562,
+                        "y": 402
+                    },
+                    "button16": {
+                        "mappings": {},
+                        "name": "button16",
+                        "x": 1562,
+                        "y": 683
+                    },
+                    "button17": {
+                        "mappings": {},
+                        "name": "button17",
+                        "x": 1756,
+                        "y": 718
+                    },
+                    "button18": {
+                        "mappings": {},
+                        "name": "button18",
+                        "x": 1562,
+                        "y": 752
+                    },
+                    "button19": {
+                        "mappings": {},
+                        "name": "button19",
+                        "x": 1370,
+                        "y": 718
+                    },
+                    "button20": {
+                        "mappings": {},
+                        "name": "button20",
+                        "x": 1562,
+                        "y": 718
+                    },
+                    "button21": {
+                        "mappings": {},
+                        "name": "button21",
+                        "x": 278,
+                        "y": 243
+                    },
+                    "button22": {
+                        "mappings": {},
+                        "name": "button22",
+                        "x": 278,
+                        "y": 278
+                    },
+                    "button23": {
+                        "mappings": {},
+                        "name": "button23",
+                        "x": 123,
+                        "y": 614
+                    },
+                    "button24": {
+                        "mappings": {},
+                        "name": "button24",
+                        "x": 123,
+                        "y": 648
+                    },
+                    "button25": {
+                        "mappings": {},
+                        "name": "button25",
+                        "x": 471,
+                        "y": 614
+                    },
+                    "button26": {
+                        "mappings": {},
+                        "name": "button26",
+                        "x": 471,
+                        "y": 648
+                    },
+                    "button27": {
+                        "mappings": {},
+                        "name": "button27",
+                        "x": 85,
+                        "y": 505
+                    },
+                    "button28": {
+                        "mappings": {},
+                        "name": "button28",
+                        "x": 278,
+                        "y": 505
+                    },
+                    "button29": {
+                        "mappings": {},
+                        "name": "button29",
+                        "x": 471,
+                        "y": 505
+                    },
+                    "z": {
+                        "mappings": {},
+                        "name": "z",
+                        "x": 278,
+                        "y": 719
+                    },
+                    "x": {
+                        "mappings": {},
+                        "name": "x",
+                        "x": 875,
+                        "y": 86
+                    },
+                    "y": {
+                        "mappings": {},
+                        "name": "y",
+                        "x": 875,
+                        "y": 122
+                    },
+                    "rotz": {
+                        "mappings": {},
+                        "name": "rotz",
+                        "x": 875,
+                        "y": 155
+                    },
+                    "rotx": {
+                        "mappings": {},
+                        "name": "rotx",
+                        "x": 1755,
+                        "y": 262
+                    },
+                    "roty": {
+                        "mappings": {},
+                        "name": "roty",
+                        "x": 1755,
+                        "y": 295
+                    }
+                }
+            }
+        }
+    }
+}

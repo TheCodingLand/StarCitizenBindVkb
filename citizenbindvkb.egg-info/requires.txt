@@ -1,0 +1,14 @@
+pydantic>=2.6.0
+pydantic-settings>=2.3.0
+PyQt6>=6.6.0
+rich>=13.7.0
+xmltodict>=0.13.0
+pygame
+
+[dev]
+pytest>=8.3.0
+pytest-qt>=4.4.0
+pytest-cov>=5.0.0
+ruff>=0.5.0
+mypy>=1.10.0
+nuitka>=2.4.0

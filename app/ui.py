@@ -3,39 +3,67 @@ from pathlib import Path
 import sys
 import json
 import logging
+import copy
 from typing import Any, Dict, Optional, List, Union
 
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QPushButton, QMessageBox, QComboBox,
-    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView
+    QApplication,
+    QMainWindow,
+    QLabel,
+    QPushButton,
+    QMessageBox,
+    QComboBox,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
 )
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
 from PyQt6.QtGui import QPixmap, QIcon
 from PyQt6 import QtGui
+import app.models.exported_configmap_xml as configmap
 from app.config import Config
 
-from app.models import configmap
-from app.models.game_control_map import GameAction, GameActionMap
-from app.models.joystick import JoystickConfig, JoyAction, get_joystick_buttons
-from app.models.settings_dialog import SettingsDialog
-from app.models.ui_action import ActionSelectionDialog
+from app.models.full_game_control_options import (
+    GameAction,
+    get_all_defined_game_actions,
+    get_all_subcategories_actions,
+)
+from app.models.joystick import JoystickConfig, JoyAction, JoyStickButton, get_joystick_buttons
+from app.components.settings_dialog import SettingsDialog
+from app.components.ui_action import ActionSelectionDialog
 from app.utils.logger import setup_logging
 
-# Additional imports for your specific functions
-from app.models.actions import Action, get_all_defined_game_actions, get_all_subcategories_actions
-from app.models.configmap import (
-    ExportedActionMapsFile, ActionMap, Rebind, get_action_maps_object
+from app.domain import (
+    ActionIdentifier,
+    Binding,
+    BindingSet,
+    ControlProfile,
+    InputSlot,
+    ValidationReport,
 )
-from app.globals import APP_PATH, get_installation, localization_file
+from app.services import BindingPlanner, BindingPlannerContext
+
+# Additional imports for your specific functions
+from app.models.exported_configmap_xml import (
+    ExportedActionMapsFile,
+    ActionMap,
+    Rebind,
+    get_action_maps_object,
+)
+from app.globals import APP_PATH, get_installation
 import xmltodict
+
 # Set up logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONTROL_MAP_FILENAME = APP_PATH / "data/SCBindsDefault.xml"
-icon_path = APP_PATH / "data/images/app_icon.png" 
+icon_path = APP_PATH / "data/images/app_icon.png"
 left_image_path = APP_PATH / "data/images/vkb_default_left.png"
 right_image_path = APP_PATH / "data/images/vkb_default_right.png"
 
@@ -46,19 +74,24 @@ joystick_buttons = get_joystick_buttons("VKB Default")
 width: int = 155
 height: int = 35
 
-test_output_file = APP_PATH / "data/test_output.xml" 
+test_output_file = APP_PATH / "data/test_output.xml"
+
 
 def unparse(data: ExportedActionMapsFile) -> str:
-    xml_data = { 'ActionMaps': [data.model_dump(exclude_none=True, by_alias=True)] }
-    with open(test_output_file, 'w') as f:
-        f.write(xmltodict.unparse(xml_data, pretty=True, indent=' ',short_empty_elements=True))
+    xml_data = {"ActionMaps": [data.model_dump(exclude_none=True, by_alias=True)]}
+    with open(test_output_file, "w") as f:
+        f.write(xmltodict.unparse(xml_data, pretty=True, indent=" ", short_empty_elements=True))
     return xmltodict.unparse(xml_data)
+
 
 class ControlMapperApp(QMainWindow):
     CONFIG_FILE: str = "config.json"
 
     def __init__(self) -> None:
         super().__init__()
+        self.control_map: Optional[ExportedActionMapsFile] = None
+        self.control_map_template: Optional[ExportedActionMapsFile] = None
+        self.exported_control_maps: List[str] = []
         self.config = Config.get_config()
         self.setWindowTitle("VKB Joystick Mapper")
 
@@ -66,9 +99,8 @@ class ControlMapperApp(QMainWindow):
         self.setWindowIconText("VKB Joystick Mapper")
         # Adjust the main window size to accommodate the action panel
         self.setGeometry(100, 100, 1950 + 400, 938)  # Increased width by 400 for the panel
-       
 
-        # Create central widget and main layout 
+        # Create central widget and main layout
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
         self.main_layout = QHBoxLayout(self.central_widget)
@@ -99,11 +131,18 @@ class ControlMapperApp(QMainWindow):
         self.unsupported_actions: List[Dict[str, Any]] = []
         self.install_type: str = self.config.install_type
 
+        self.binding_planner_context = BindingPlannerContext()
+        self.binding_planner = BindingPlanner(self.binding_planner_context)
+        self.joystick_buttons_by_slot: Dict[str, JoyStickButton] = {
+            button.sc_config_name: button for button in joystick_buttons.values()
+        }
+        self.binding_validation_report: Optional[ValidationReport] = None
+
         self.previous_selected_button: Optional[QPushButton] = None
         self.button_refs: Dict[str, QPushButton] = {}
         self.joystick_sides: Dict[int, str] = {}
         self.selected_button_label: Optional[str] = None  # Currently selected button label
-        
+
         self.init_ui()
         self.init_install_type()
         self.set_default_bindings()
@@ -116,8 +155,9 @@ class ControlMapperApp(QMainWindow):
             self.exported_control_maps = []
         else:
             self.settings_button.setStyleSheet("background-color: rgba(150, 150, 150, 255);")
-            self.exported_control_maps: List[str] = self.install.exported_control_maps
+            self.exported_control_maps = self.install.exported_control_maps
         self.control_map = None
+        self.control_map_template = None
         self.populate_control_maps_combo_box()
 
     def init_ui(self) -> None:
@@ -126,8 +166,6 @@ class ControlMapperApp(QMainWindow):
         self.create_joystick_buttons()
         self.create_action_panel()
 
-    
-            
     def open_settings_dialog(self) -> None:
         dialog = SettingsDialog(self.config, self)
         if dialog.exec():
@@ -189,18 +227,28 @@ class ControlMapperApp(QMainWindow):
         panel_width = 560
         self.action_panel.setMinimumWidth(panel_width)
         self.action_panel.setMaximumWidth(panel_width)
-        
+
         # Label to display the selected button
-        self.selected_button_label_widget: QLabel = QLabel("Selected Button: None", self.action_panel)
+        self.selected_button_label_widget: QLabel = QLabel(
+            "Selected Button: None", self.action_panel
+        )
         self.action_panel_layout.addWidget(self.selected_button_label_widget)
 
         # Create a QTableWidget to display actions
         self.actions_table_widget: QTableWidget = QTableWidget(self.action_panel)
         self.actions_table_widget.setColumnCount(4)
-        self.actions_table_widget.setHorizontalHeaderLabels(['Action Name', 'Modifier', 'Multitap', 'Hold'])
-        self.actions_table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.actions_table_widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.actions_table_widget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.actions_table_widget.setHorizontalHeaderLabels(
+            ["Action Name", "Modifier", "Multitap", "Hold"]
+        )
+        self.actions_table_widget.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.actions_table_widget.setSelectionBehavior(
+            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
+        )
+        self.actions_table_widget.setEditTriggers(
+            QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
+        )
         self.actions_table_widget.setFixedHeight(400)
         self.action_panel_layout.addWidget(self.actions_table_widget)
 
@@ -210,7 +258,9 @@ class ControlMapperApp(QMainWindow):
         self.add_action_button.clicked.connect(self.add_action_to_button)
         buttons_layout.addWidget(self.add_action_button)
 
-        self.remove_action_button: QPushButton = QPushButton("Remove Selected Action", self.action_panel)
+        self.remove_action_button: QPushButton = QPushButton(
+            "Remove Selected Action", self.action_panel
+        )
         self.remove_action_button.clicked.connect(self.remove_selected_action)
         buttons_layout.addWidget(self.remove_action_button)
 
@@ -226,13 +276,20 @@ class ControlMapperApp(QMainWindow):
         # Create a QTableWidget to display unsupported actions
         self.unsupported_actions_table_widget: QTableWidget = QTableWidget(self.action_panel)
         self.unsupported_actions_table_widget.setColumnCount(4)
-        self.unsupported_actions_table_widget.setHorizontalHeaderLabels(['Action Name', 'Button', 'Modifier', 'Side'])
-        self.unsupported_actions_table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.unsupported_actions_table_widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.unsupported_actions_table_widget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.unsupported_actions_table_widget.setHorizontalHeaderLabels(
+            ["Action Name", "Button", "Modifier", "Side"]
+        )
+        self.unsupported_actions_table_widget.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.unsupported_actions_table_widget.setSelectionBehavior(
+            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
+        )
+        self.unsupported_actions_table_widget.setEditTriggers(
+            QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
+        )
         self.unsupported_actions_table_widget.setFixedHeight(400)
         self.action_panel_layout.addWidget(self.unsupported_actions_table_widget)
-
 
     def toggle_modifier(self) -> None:
         self.modifier_enabled = not self.modifier_enabled
@@ -250,20 +307,20 @@ class ControlMapperApp(QMainWindow):
 
     def toggle_hold(self) -> None:
         self.hold_enabled = not self.hold_enabled
-        self.hold_button.setText(
-            "Disable Hold" if self.hold_enabled else "Enable Hold"
-        )
+        self.hold_button.setText("Disable Hold" if self.hold_enabled else "Enable Hold")
         self.update_joystick_buttons()
 
-
     def set_default_bindings(self) -> None:
-        
-        self.control_map = get_action_maps_object(DEFAULT_CONTROL_MAP_FILENAME)
+        self.control_map = get_action_maps_object(str(DEFAULT_CONTROL_MAP_FILENAME))
+        self.control_map_template = copy.deepcopy(self.control_map)
         self.joystick_sides: Dict[int, str] = self.get_joystick_sides(self.control_map)
         self.load_joystick_mappings()
         self.update_joystick_buttons()
+        self.binding_planner_context.default_profile = self.build_control_profile_snapshot()
 
     def select_control_map(self, index: int) -> None:
+        if index < 0 or index >= len(self.exported_control_maps):
+            return
         control_map_file: str = self.exported_control_maps[index]
         try:
             self.control_map = get_action_maps_object(control_map_file)
@@ -274,27 +331,28 @@ class ControlMapperApp(QMainWindow):
             QMessageBox.warning(
                 self,
                 "Error Loading Control Map",
-                "An error occurred while loading this control map."
+                "An error occurred while loading this control map.",
             )
             return
 
-        self.joystick_sides: Dict[int, str] = self.get_joystick_sides(self.control_map)
+        self.control_map_template = copy.deepcopy(self.control_map)
+        self.joystick_sides = self.get_joystick_sides(self.control_map)
         self.load_joystick_mappings()
         self.update_joystick_buttons()
+        self.binding_planner_context.default_profile = self.build_control_profile_snapshot()
 
-    def get_joystick_sides(
-        self, control_map: ExportedActionMapsFile
-    ) -> Dict[int, str]:
+    def get_joystick_sides(self, control_map: ExportedActionMapsFile) -> Dict[int, str]:
         instance_number_mapping: Dict[int, str] = {}
         for option in control_map.options:
             if option.product is None:
                 continue
             if self.config.joystick_left_name_filter in option.product:
                 product_name: str = option.product.split("{")[0]
-                side: str = "left" if self.config.joystick_side_identifier_left in product_name else "right"
+                side: str = (
+                    "left" if self.config.joystick_side_identifier_left in product_name else "right"
+                )
                 instance_number_mapping[option.instance] = side
         return instance_number_mapping
-
 
     def update_unsupported_actions_table(self) -> None:
         # Clear the existing table
@@ -306,15 +364,15 @@ class ControlMapperApp(QMainWindow):
             self.unsupported_actions_table_widget.insertRow(row_position)
 
             # Create table items
-            action_name_item = QTableWidgetItem(action_info['action_name'])
-            button_item = QTableWidgetItem(action_info['button'])
-            modifier_item = QTableWidgetItem('Yes' if action_info['modifier'] else 'No')
-            side_item = QTableWidgetItem(action_info['side'])
+            action_name_item = QTableWidgetItem(action_info["action_name"])
+            button_item = QTableWidgetItem(action_info["button"])
+            modifier_item = QTableWidgetItem("Yes" if action_info["modifier"] else "No")
+            side_item = QTableWidgetItem(action_info["side"])
 
             # Optionally, apply styling based on modifier
-            if action_info['modifier']:
-                modifier_item.setBackground(QtGui.QColor('lightgreen'))
-                modifier_item.setForeground(QtGui.QColor('black'))
+            if action_info["modifier"]:
+                modifier_item.setBackground(QtGui.QColor("lightgreen"))
+                modifier_item.setForeground(QtGui.QColor("black"))
 
             # Add items to the table
             self.unsupported_actions_table_widget.setItem(row_position, 0, action_name_item)
@@ -322,12 +380,10 @@ class ControlMapperApp(QMainWindow):
             self.unsupported_actions_table_widget.setItem(row_position, 2, modifier_item)
             self.unsupported_actions_table_widget.setItem(row_position, 3, side_item)
 
-        #Adjust column widths
+        # Adjust column widths
         self.unsupported_actions_table_widget.resizeColumnsToContents()
 
-
     def load_joystick_mappings(self) -> None:
-        
         self.unsupported_actions.clear()
         self.left_joystick_config.clear_mappings()
         self.right_joystick_config.clear_mappings()
@@ -345,23 +401,18 @@ class ControlMapperApp(QMainWindow):
             for rebind in action.rebind:
                 self.process_rebind(action, rebind)
 
-    def unbind_action(self, action: configmap.Action) -> None:
-        # an action can only be bound to one button per device, but for joysticks, we want to avoid multiple bindings
+    def unbind_action(self, action_name: str) -> None:
+        """Remove an action from all joystick mappings."""
         joy_actions_copy = self.left_joystick_config.configured_actions.copy()
         for joy_action in joy_actions_copy.values():
-            if action.name == joy_action.name:
-                self.left_joystick_config.unbind_action(action.name)
-                print(f"Unbound action {action.name} from Left Joystick")
+            if action_name == joy_action.name:
+                self.left_joystick_config.unbind_action(action_name)
         joy_actions_copy = self.right_joystick_config.configured_actions.copy()
         for joy_action in joy_actions_copy.values():
-            if action.name == joy_action.name:
-                
-                self.right_joystick_config.unbind_action(action.name)
-                
+            if action_name == joy_action.name:
+                self.right_joystick_config.unbind_action(action_name)
 
-    def process_rebind(
-        self, action: configmap.Action, rebind: Rebind
-    ) -> None:
+    def process_rebind(self, action: configmap.Action, rebind: Rebind) -> None:
         try:
             joy_command_input_string: str = rebind.input
             if not joy_command_input_string.startswith("js"):
@@ -384,29 +435,24 @@ class ControlMapperApp(QMainWindow):
             try:
                 default_action_conf: List[GameAction] = all_default_actions[action.name]
             except KeyError:
-                logger.warning(
-                    f"Action {action.name} not found in default actions."
-                )
-                unsupported_action_info : Dict[str, Union[str, bool]]= {
-                    'action_name': action.name,
-                    'button': js_button,
-                    'modifier': modifier,
-                    'side': side
+                logger.warning(f"Action {action.name} not found in default actions.")
+                unsupported_action_info: Dict[str, Union[str, bool]] = {
+                    "action_name": action.name,
+                    "button": js_button,
+                    "modifier": modifier,
+                    "side": side,
                 }
                 self.unsupported_actions.append(unsupported_action_info)
                 return
             for game_action in default_action_conf:
-                
-                #hold: bool = game_action.activation_mode == "delayed_press"
-                hold = game_action.on_hold == '1'
+                # hold: bool = game_action.activation_mode == "delayed_press"
+                hold = game_action.on_hold == "1"
                 main_category: str = game_action.main_category
                 sub_category: str = game_action.sub_category
                 multitap: bool = rebind.multitap is not None
                 button = joystick_buttons.get(js_button)
                 if button is None:
-                    logger.warning(
-                        f"Button {js_button} not found in joystick_buttons."
-                    )
+                    logger.warning(f"Button {js_button} not found in joystick_buttons.")
                     continue
                 joy_action = JoyAction(
                     name=action.name,
@@ -419,13 +465,13 @@ class ControlMapperApp(QMainWindow):
                     button=button,
                 )
                 # an action can only be bound to one button per device, but for joysticks, we want to avoid multiple bindings
-                self.unbind_action(action) 
-                
+                self.unbind_action(action.name)
+
                 if side == "left":
                     self.left_joystick_config.set_mapping(joy_action)
                 else:
                     self.right_joystick_config.set_mapping(joy_action)
-                
+
         except Exception as e:
             logger.exception(f"Error processing rebind: {e}")
 
@@ -449,7 +495,7 @@ class ControlMapperApp(QMainWindow):
         else:
             # If js1 is not found, default to left joystick
             default_joystick = self.left_joystick_config
-        
+
         for main_cat, action_game_map in cat_subcat_actions.root.items():
             sub_cat = action_game_map.name
             for action in action_game_map.action:
@@ -458,42 +504,37 @@ class ControlMapperApp(QMainWindow):
                 if action.joystick is None:
                     continue
                 if isinstance(action.joystick, str):
-                    #hold = bind.joystick. == "delayed_press"
+                    # hold = bind.joystick. == "delayed_press"
                     hold = action.activation_mode == "delayed_press"
-                    js_button= action.joystick
-                    
+                    js_button = action.joystick
+
                 else:
-                    js_button= action.joystick.input
+                    js_button = action.joystick.input
                     hold = action.joystick.activationmode == "delayed_press"
                 if js_button in [" ", ""]:
                     continue
                 modifier = "+" in js_button
                 if modifier:
                     js_button = js_button.split("+")[-1]
-                if 'slider' in js_button:
+                if "slider" in js_button:
                     continue
                 joy_action = JoyAction(
-                        name=action.name,
-                        input=js_button,
-                        multitap=False,
-                        hold=hold,
-                        category=main_cat,
-                        sub_category=sub_cat,
-                        modifier=modifier,
-                        button=joystick_buttons[js_button],
-                    )
-                    
-                
-                
-                default_joystick.set_mapping(joy_action)
+                    name=action.name,
+                    input=js_button,
+                    multitap=False,
+                    hold=hold,
+                    category=main_cat,
+                    sub_category=sub_cat,
+                    modifier=modifier,
+                    button=joystick_buttons[js_button],
+                )
 
-    def binds_from_action(self, bind: GameActionMap) -> List[JoyAction]:
-        pass
+                default_joystick.set_mapping(joy_action)
 
     def populate_control_maps_combo_box(self) -> None:
         self.control_maps_combo_box.clear()
         for control_map in self.exported_control_maps:
-            self.control_maps_combo_box.addItem(control_map.split("/")[-1])
+            self.control_maps_combo_box.addItem(Path(control_map).name)
 
     def eventFilter(self, source: QObject, event: QEvent) -> bool:
         return super().eventFilter(source, event)
@@ -555,7 +596,7 @@ class ControlMapperApp(QMainWindow):
         button.setStyleSheet("background-color: transparent;")
         self.apply_button_style(button, action=False)
         button.clicked.connect(
-            lambda _, b=button, l=label: self.show_action_panel(b, l)
+            lambda _, btn=button, button_label=label: self.show_action_panel(btn, button_label)
         )
         button.show()
         self.button_refs[label] = button
@@ -565,12 +606,15 @@ class ControlMapperApp(QMainWindow):
         Display the action panel with all mappings for the selected button.
         """
         self.apply_button_style(button, action=self.has_action(label), selected=True)
-        
+
         if self.previous_selected_button and self.previous_selected_button != button:
-            self.update_button_label(self.selected_button_label)
-            self.apply_button_style(self.previous_selected_button, action=self.has_action(self.selected_button_label), selected=False)
-        
-        
+            if self.selected_button_label:
+                self.update_button_label(self.selected_button_label)
+                self.apply_button_style(
+                    self.previous_selected_button,
+                    action=self.has_action(self.selected_button_label),
+                    selected=False,
+                )
 
         self.previous_selected_button = button
         self.selected_button_label = label
@@ -596,13 +640,13 @@ class ControlMapperApp(QMainWindow):
             # Use checkmarks or color codes to represent True/False
             modifier_item.setText("")
             multitap_item.setText("")
-            hold_item.setText("") 
-            if joy_action.modifier:   
-                modifier_item.setBackground(QtGui.QColor('lightgreen'))
+            hold_item.setText("")
+            if joy_action.modifier:
+                modifier_item.setBackground(QtGui.QColor("lightgreen"))
             if joy_action.multitap:
-                multitap_item.setBackground(QtGui.QColor('lightblue'))
+                multitap_item.setBackground(QtGui.QColor("lightblue"))
             if joy_action.hold:
-                hold_item.setBackground(QtGui.QColor('lightcoral'))               
+                hold_item.setBackground(QtGui.QColor("lightcoral"))
 
             # Store the key in the first item's data
             action_name_item.setData(Qt.ItemDataRole.UserRole, key)
@@ -627,52 +671,113 @@ class ControlMapperApp(QMainWindow):
         dialog = ActionSelectionDialog(cat_subcat_actions, self)
         if dialog.exec():
             selected_action_name: str = dialog.selected_action
-            #selected_action_key: str = dialog.selected_action
-            action: List[GameAction] = all_default_actions.get(selected_action_name)
-            action_info = action[0]
+            if not selected_action_name:
+                return
+            action = all_default_actions.get(selected_action_name)
             if action:
+                action_info = action[0]
                 hold: bool = self.hold_enabled
                 multitap: bool = self.multitap_enabled
                 modifier: bool = self.modifier_enabled
+                joystick_button = joystick_buttons[self.selected_button_label]
+                binding_input = self.build_binding_input(
+                    joystick_button,
+                    self.current_joystick,
+                    modifier,
+                )
                 joy_action = JoyAction(
                     name=selected_action_name,
-                    input=self.selected_button_label,
+                    input=binding_input,
                     multitap=multitap,
                     hold=hold,
-                    category=action_info.main_category,
-                    sub_category=action_info.sub_category,
+                    category=action_info.main_category or "",
+                    sub_category=action_info.sub_category or "",
                     modifier=modifier,
-                    button=joystick_buttons[self.selected_button_label],
+                    button=joystick_button,
                 )
-                self.unbind_action(action_info)
+                self.unbind_action(selected_action_name)
                 self.current_config.set_mapping(joy_action)
                 self.update_button_label(self.selected_button_label)
-                self.show_action_panel(self.button_refs[self.selected_button_label], self.selected_button_label)  # Refresh the panel
+                self.show_action_panel(
+                    self.button_refs[self.selected_button_label], self.selected_button_label
+                )  # Refresh the panel
+                self.remove_unsupported_entry(selected_action_name, self.current_joystick)
+                self.update_unsupported_actions_table()
                 self.update_control_map()
             else:
                 logger.warning(f"Action {selected_action_name} not found.")
-    def add_action_to_control_map(self, joy_action: JoyAction) -> None:
-        # we use joy_action.actionmap_section to set the action in the correct actionmap       
-        #TODO : rewrite because we need to add each keybind for each device separately but to the same actionmap
-        for actionmap in self.control_map.actionmap:
-            if actionmap.name == joy_action.actionmap_section:
-                action = configmap.Action(name=joy_action.name, rebind=Rebind(input=joy_action.input, multiTap="2" if joy_action.multitap else None))
-                actionmap.action.append(action)
-                
+
+    def add_action_to_control_map(
+        self,
+        control_map: ExportedActionMapsFile,
+        joy_action: JoyAction,
+    ) -> None:
+        target_actionmap = next(
+            (
+                actionmap
+                for actionmap in control_map.actionmap
+                if actionmap.name == joy_action.actionmap_section
+            ),
+            None,
+        )
+        if target_actionmap is None:
+            logger.warning(
+                "Action map %s not found for action %s",
+                joy_action.actionmap_section,
+                joy_action.name,
+            )
+            return
+
+        existing_action = next(
+            (a for a in target_actionmap.action if a.name == joy_action.name), None
+        )
+        rebind_payload: Dict[str, Any] = {"@input": joy_action.input}
+        if joy_action.multitap:
+            rebind_payload["@multiTap"] = 2
+        new_rebind = Rebind.model_validate(rebind_payload)
+
+        if existing_action:
+            prefix = joy_action.input.split("_")[0]
+            existing_action.rebind = [
+                rb for rb in existing_action.rebind if not rb.input.startswith(prefix)
+            ]
+            existing_action.rebind.append(new_rebind)
+        else:
+            target_actionmap.action.append(
+                configmap.Action.model_validate({"@name": joy_action.name, "rebind": [new_rebind]})
+            )
 
     def update_control_map(self) -> None:
-        
+        if self.control_map_template is None:
+            logger.warning("Control map template is not initialised; skipping export update.")
+            return
 
-        for action_map_name in cat_subcat_actions.root.keys():
-            action_map = ActionMap(name=action_map_name, action=[])
-            self.control_map.actionmap.append(action_map)
-        for action in self.left_joystick_config.configured_actions.values():
-            self.add_action_to_control_map(action)
-        for action in self.right_joystick_config.configured_actions.values():
-            self.add_action_to_control_map(action)
-        
-        unparse(self.control_map)
+        export_map = copy.deepcopy(self.control_map_template)
+        joystick_instances = {
+            side: self.get_instance_number_for_side(side) for side in ("left", "right")
+        }
+        self.clear_joystick_rebinds(
+            export_map,
+            {instance for instance in joystick_instances.values() if instance is not None},
+        )
 
+        desired_profile = self.build_control_profile_snapshot()
+        plan = self.binding_planner.plan_from_profile(desired_profile)
+        report = self.binding_planner.validate_plan(plan)
+        self.binding_validation_report = report
+        self._log_binding_validation_report(report)
+
+        for binding_key in plan.to_remove:
+            self.remove_binding_from_control_map(export_map, binding_key)
+
+        for binding in plan.to_add:
+            joy_action = self._binding_to_joy_action(binding)
+            if joy_action is None:
+                continue
+            self.add_action_to_control_map(export_map, joy_action)
+
+        self.control_map = export_map
+        unparse(export_map)
 
     def remove_selected_action(self) -> None:
         """
@@ -685,7 +790,9 @@ class ControlMapperApp(QMainWindow):
 
         for selected_range in selected_ranges:
             for row in range(selected_range.topRow(), selected_range.bottomRow() + 1):
-                key_item = self.actions_table_widget.item(row, 0)  # Key is stored in the first column
+                key_item = self.actions_table_widget.item(
+                    row, 0
+                )  # Key is stored in the first column
                 if key_item:
                     key = key_item.data(Qt.ItemDataRole.UserRole)
                     self.current_config.remove_mapping_by_key(key)
@@ -694,6 +801,8 @@ class ControlMapperApp(QMainWindow):
                 self.actions_table_widget.removeRow(row)
         assert self.selected_button_label
         self.update_button_label(self.selected_button_label)
+        self.update_unsupported_actions_table()
+        self.update_control_map()
 
     def has_action(self, label: str) -> bool:
         actions_dict = self.current_config.get_actions_for_button(
@@ -714,9 +823,7 @@ class ControlMapperApp(QMainWindow):
                 multitap=self.multitap_enabled,
                 hold=self.hold_enabled,
             )
-            button.setText(
-                "\n".join(action.name for action in actions_dict.values())
-            )
+            button.setText("\n".join(action.name for action in actions_dict.values()))
         else:
             button.setText(label)
         if self.selected_button_label == label:
@@ -724,12 +831,10 @@ class ControlMapperApp(QMainWindow):
         else:
             self.apply_button_style(button, action=has_action)
 
-    def apply_button_style(
-        self, button: QPushButton, action: bool, selected: bool = False
-    ) -> None:
+    def apply_button_style(self, button: QPushButton, action: bool, selected: bool = False) -> None:
         if selected:
             # Apply neon purple highlight
-            
+
             button.setStyleSheet(
                 """
                 QPushButton {
@@ -776,43 +881,210 @@ class ControlMapperApp(QMainWindow):
                     f,
                     indent=4,
                 )
-            QMessageBox.information(
-                self, "Success", "Configuration saved successfully."
-            )
+            QMessageBox.information(self, "Success", "Configuration saved successfully.")
         except Exception as e:
             logger.exception("Failed to save configuration")
-            QMessageBox.warning(
-                self, "Error", f"Failed to save configuration: {e}"
-            )
+            QMessageBox.warning(self, "Error", f"Failed to save configuration: {e}")
 
     def load_config(self) -> None:
         try:
             if Path(self.CONFIG_FILE).exists():
                 with open(self.CONFIG_FILE, "r") as f:
                     data = json.load(f)
-                    self.left_joystick_config = JoystickConfig.model_validate(
-                        data["left"]
-                    )
-                    self.right_joystick_config = JoystickConfig.model_validate(
-                        data["right"]
-                    )
+                    self.left_joystick_config = JoystickConfig.model_validate(data["left"])
+                    self.right_joystick_config = JoystickConfig.model_validate(data["right"])
                 if self.current_joystick == "left":
                     self.current_config = self.left_joystick_config
                 else:
                     self.current_config = self.right_joystick_config
                 self.update_joystick_buttons()
-                QMessageBox.information(
-                    self, "Success", "Configuration loaded successfully."
-                )
+                QMessageBox.information(self, "Success", "Configuration loaded successfully.")
             else:
-                QMessageBox.warning(
-                    self, "Error", "No configuration file found."
-                )
+                QMessageBox.warning(self, "Error", "No configuration file found.")
         except Exception as e:
             logger.exception("Failed to load configuration")
-            QMessageBox.warning(
-                self, "Error", f"Failed to load configuration: {e}"
+            QMessageBox.warning(self, "Error", f"Failed to load configuration: {e}")
+
+    def build_control_profile_snapshot(self) -> ControlProfile:
+        left_set = BindingSet(side="left")
+        for binding in self._bindings_from_config(self.left_joystick_config):
+            left_set.add(binding)
+
+        right_set = BindingSet(side="right")
+        for binding in self._bindings_from_config(self.right_joystick_config):
+            right_set.add(binding)
+
+        return ControlProfile(
+            profile_name="UI Profile",
+            left=left_set,
+            right=right_set,
+            metadata={"install_type": self.install_type},
+        )
+
+    def _bindings_from_config(self, config: JoystickConfig) -> List[Binding]:
+        bindings: List[Binding] = []
+        for joy_action in config.configured_actions.values():
+            bindings.append(self._joy_action_to_binding(joy_action, config.side))
+        return bindings
+
+    def _joy_action_to_binding(self, joy_action: JoyAction, side: str) -> Binding:
+        device_uid = self._resolve_device_uid_for_side(side)
+        if device_uid is None:
+            device_uid = self._parse_device_uid_from_input(joy_action.input)
+        if device_uid is None:
+            fallback_instance = (
+                self.config.joystick_instance_left
+                if side == "left"
+                else self.config.joystick_instance_right
             )
+            device_uid = f"js{fallback_instance}"
+
+        slot_id = joy_action.button.sc_config_name
+        action_identifier = ActionIdentifier(
+            name=joy_action.name,
+            main_category=joy_action.category or "",
+            sub_category=joy_action.sub_category or "",
+        )
+
+        slot = InputSlot(device_uid=device_uid, side=side, slot_id=slot_id)
+
+        return Binding(
+            action=action_identifier,
+            slot=slot,
+            modifier=joy_action.modifier,
+            hold=joy_action.hold,
+            multitap=joy_action.multitap,
+            tags={joy_action.button.name, slot_id},
+        )
+
+    def _binding_to_joy_action(self, binding: Binding) -> Optional[JoyAction]:
+        button = self._get_button_for_binding(binding)
+        if button is None:
+            logger.warning("No joystick button metadata found for binding %s", binding.key)
+            return None
+
+        input_value = self._build_input_from_binding(binding)
+
+        return JoyAction(
+            name=binding.action.name,
+            input=input_value,
+            category=binding.action.main_category,
+            sub_category=binding.action.sub_category,
+            modifier=binding.modifier,
+            hold=binding.hold,
+            multitap=binding.multitap,
+            button=button,
+        )
+
+    def _build_input_from_binding(self, binding: Binding) -> str:
+        device_uid = self._resolve_device_uid_for_side(binding.slot.side)
+        if device_uid is None:
+            device_uid = binding.slot.device_uid
+        if not device_uid:
+            fallback_instance = (
+                self.config.joystick_instance_left
+                if binding.slot.side == "left"
+                else self.config.joystick_instance_right
+            )
+            device_uid = f"js{fallback_instance}"
+
+        base = f"{device_uid}_{binding.slot.slot_id}"
+        if binding.modifier:
+            modifier_prefix = f"{device_uid}_{self.config.modifier_key}"
+            return f"{modifier_prefix}+{binding.slot.slot_id}"
+        return base
+
+    def _get_button_for_binding(self, binding: Binding) -> Optional[JoyStickButton]:
+        button = self.joystick_buttons_by_slot.get(binding.slot.slot_id)
+        if button is None and binding.tags:
+            for tag in binding.tags:
+                candidate = joystick_buttons.get(tag)
+                if candidate is not None:
+                    button = candidate
+                    break
+        if button is None:
+            return None
+        return button.model_copy()
+
+    def _resolve_device_uid_for_side(self, side: str) -> Optional[str]:
+        instance = self.get_instance_number_for_side(side)
+        if instance is None:
+            return None
+        return f"js{instance}"
+
+    @staticmethod
+    def _parse_device_uid_from_input(binding_input: str) -> Optional[str]:
+        if not binding_input:
+            return None
+        prefix = binding_input.split("_", maxsplit=1)[0]
+        if prefix.startswith("js"):
+            return prefix
+        return None
+
+    def _log_binding_validation_report(self, report: ValidationReport) -> None:
+        if not report.issues:
+            return
+        for issue in report.issues:
+            action_name = issue.action.name if issue.action else "(action unknown)"
+            slot_id = issue.slot.slot_id if issue.slot else "(slot unknown)"
+            message = f"{issue.level.upper()} for {action_name} on {slot_id}: {issue.message}"
+            if issue.level.lower() == "error":
+                logger.error(message)
+            else:
+                logger.info(message)
+
+    def remove_binding_from_control_map(
+        self,
+        control_map: ExportedActionMapsFile,
+        binding_key: str,
+    ) -> None:
+        logger.debug(
+            "Binding removal requested for key %s; targeted removal is not yet implemented.",
+            binding_key,
+        )
+
+    def build_binding_input(self, button: JoyStickButton, side: str, modifier: bool) -> str:
+        instance = self.get_instance_number_for_side(side)
+        if instance is None:
+            instance = (
+                self.config.joystick_instance_left
+                if side == "left"
+                else self.config.joystick_instance_right
+            )
+        base = f"js{instance}_{button.sc_config_name}"
+        if modifier:
+            modifier_prefix = f"js{instance}_{self.config.modifier_key}"
+            return f"{modifier_prefix}+{button.sc_config_name}"
+        return base
+
+    def get_instance_number_for_side(self, side: str) -> Optional[int]:
+        for instance, mapped_side in self.joystick_sides.items():
+            if mapped_side == side:
+                return instance
+        return None
+
+    def remove_unsupported_entry(self, action_name: str, side: str) -> None:
+        self.unsupported_actions = [
+            entry
+            for entry in self.unsupported_actions
+            if not (entry["action_name"] == action_name and entry["side"] == side)
+        ]
+
+    def clear_joystick_rebinds(
+        self,
+        control_map: ExportedActionMapsFile,
+        instances: set[int],
+    ) -> None:
+        if not instances:
+            return
+        prefixes = tuple(f"js{instance}_" for instance in instances)
+        for actionmap in control_map.actionmap:
+            for action in actionmap.action:
+                if not action.rebind:
+                    continue
+                action.rebind = [
+                    rebind for rebind in action.rebind if not rebind.input.startswith(prefixes)
+                ]
 
 
 if __name__ == "__main__":

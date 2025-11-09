@@ -1,15 +1,458 @@
 {
-    "supported_devices": {
-        "VKB": {
-            "image_file": "vkb_new.png",
-            "image_size": {
-                "width": 1000,
-                "height": 1000
+    "VKB": {
+        "devices": {
+            "1": {
+                "name": "VKB Gladiator Left",
+                "side": "left",
+                "configmap_instance": 1,
+                "device_instance": 1,
+                "displaymode": "full",
+                "background_image": "vkb_new.png",
+                "image_height": 800,
+                "image_width": 1920,
+                "buttons": {
+                    "hat1_up": {
+                        "name": "hat1_up",
+                        "x": 265,
+                        "y": 52
+                    },
+                    "hat1_up_right": {
+                        "name": "hat1_up_right",
+                        "x": 457,
+                        "y": 52
+                    },
+                    "hat1_up_left": {
+                        "name": "hat1_up_left",
+                        "x": 71,
+                        "y": 52
+                    },
+                    "hat1_left": {
+                        "name": "hat1_left",
+                        "x": 71,
+                        "y": 87
+                    },
+                    "hat1_right": {
+                        "name": "hat1_right",
+                        "x": 457,
+                        "y": 87
+                    },
+                    "hat1_down_left": {
+                        "name": "hat1_down_left",
+                        "x": 71,
+                        "y": 122
+                    },
+                    "hat1_down": {
+                        "name": "hat1_down",
+                        "x": 265,
+                        "y": 122
+                    },
+                    "hat1_down_right": {
+                        "name": "hat1_down_right",
+                        "x": 457,
+                        "y": 122
+                    },
+                    "button1": {
+                        "name": "button1",
+                        "x": 1545,
+                        "y": 334
+                    },
+                    "button2": {
+                        "name": "button2",
+                        "x": 1545,
+                        "y": 365
+                    },
+                    "button3": {
+                        "name": "button3",
+                        "x": 457,
+                        "y": 260
+                    },
+                    "button4": {
+                        "name": "button4",
+                        "x": 1545,
+                        "y": 190
+                    },
+                    "button5": {
+                        "name": "button5",
+                        "x": 1545,
+                        "y": 419
+                    },
+                    "button6": {
+                        "name": "button6",
+                        "x": 265,
+                        "y": 524
+                    },
+                    "button7": {
+                        "name": "button7",
+                        "x": 457,
+                        "y": 560
+                    },
+                    "button8": {
+                        "name": "button8",
+                        "x": 265,
+                        "y": 592
+                    },
+                    "button9": {
+                        "name": "button9",
+                        "x": 71,
+                        "y": 560
+                    },
+                    "button10": {
+                        "name": "button10",
+                        "x": 265,
+                        "y": 560
+                    },
+                    "button11": {
+                        "name": "button11",
+                        "x": 265,
+                        "y": 367
+                    },
+                    "button12": {
+                        "name": "button12",
+                        "x": 457,
+                        "y": 402
+                    },
+                    "button13": {
+                        "name": "button13",
+                        "x": 265,
+                        "y": 437
+                    },
+                    "button14": {
+                        "name": "button14",
+                        "x": 71,
+                        "y": 402
+                    },
+                    "button15": {
+                        "name": "button15",
+                        "x": 265,
+                        "y": 402
+                    },
+                    "button16": {
+                        "name": "button16",
+                        "x": 265,
+                        "y": 683
+                    },
+                    "button17": {
+                        "name": "button17",
+                        "x": 457,
+                        "y": 718
+                    },
+                    "button18": {
+                        "name": "button18",
+                        "x": 265,
+                        "y": 752
+                    },
+                    "button19": {
+                        "name": "button19",
+                        "x": 71,
+                        "y": 718
+                    },
+                    "button20": {
+                        "name": "button20",
+                        "x": 265,
+                        "y": 718
+                    },
+                    "button21": {
+                        "name": "button21",
+                        "x": 1545,
+                        "y": 243
+                    },
+                    "button22": {
+                        "name": "button22",
+                        "x": 1545,
+                        "y": 278
+                    },
+                    "button23": {
+                        "name": "button23",
+                        "x": 1389,
+                        "y": 614
+                    },
+                    "button24": {
+                        "name": "button24",
+                        "x": 1389,
+                        "y": 648
+                    },
+                    "button25": {
+                        "name": "button25",
+                        "x": 1740,
+                        "y": 614
+                    },
+                    "button26": {
+                        "name": "button26",
+                        "x": 1740,
+                        "y": 648
+                    },
+                    "button27": {
+                        "name": "button27",
+                        "x": 1354,
+                        "y": 505
+                    },
+                    "button28": {
+                        "name": "button28",
+                        "x": 1545,
+                        "y": 505
+                    },
+                    "button29": {
+                        "name": "button29",
+                        "x": 1740,
+                        "y": 505
+                    },
+                    "z": {
+                        "name": "z",
+                        "x": 1545,
+                        "y": 719
+                    },
+                    "x": {
+                        "name": "x",
+                        "x": 950,
+                        "y": 86
+                    },
+                    "y": {
+                        "name": "y",
+                        "x": 950,
+                        "y": 122
+                    },
+                    "rotz": {
+                        "name": "rotz",
+                        "x": 950,
+                        "y": 155
+                    },
+                    "rotx": {
+                        "name": "rotx",
+                        "x": 71,
+                        "y": 262
+                    },
+                    "roty": {
+                        "name": "roty",
+                        "x": 71,
+                        "y": 295
+                    }
+                }
             },
-            "buttons": {
-                "hat1_up": {
-                    "x": 0,
-                    "y": 0
+            "2": {
+                "name": "VKB Gladiator Right",
+                "side": "right",
+                "configmap_instance": 2,
+                "device_instance": 2,
+                "displaymode": "full",
+                "background_image": "vkb_new.png",
+                "image_height": 800,
+                "image_width": 1920,
+                "buttons": {
+                    "hat1_up": {
+                        "name": "hat1_up",
+                        "x": 1565,
+                        "y": 52
+                    },
+                    "hat1_up_right": {
+                        "name": "hat1_up_right",
+                        "x": 1755,
+                        "y": 52
+                    },
+                    "hat1_up_left": {
+                        "name": "hat1_up_left",
+                        "x": 1371,
+                        "y": 52
+                    },
+                    "hat1_left": {
+                        "name": "hat1_left",
+                        "x": 1371,
+                        "y": 87
+                    },
+                    "hat1_right": {
+                        "name": "hat1_right",
+                        "x": 1755,
+                        "y": 87
+                    },
+                    "hat1_down_left": {
+                        "name": "hat1_down_left",
+                        "x": 1371,
+                        "y": 122
+                    },
+                    "hat1_down": {
+                        "name": "hat1_down",
+                        "x": 1565,
+                        "y": 122
+                    },
+                    "hat1_down_right": {
+                        "name": "hat1_down_right",
+                        "x": 1755,
+                        "y": 122
+                    },
+                    "button1": {
+                        "name": "button1",
+                        "x": 278,
+                        "y": 334
+                    },
+                    "button2": {
+                        "name": "button2",
+                        "x": 278,
+                        "y": 365
+                    },
+                    "button3": {
+                        "name": "button3",
+                        "x": 1370,
+                        "y": 260
+                    },
+                    "button4": {
+                        "name": "button4",
+                        "x": 278,
+                        "y": 190
+                    },
+                    "button5": {
+                        "name": "button5",
+                        "x": 278,
+                        "y": 419
+                    },
+                    "button6": {
+                        "name": "button6",
+                        "x": 1562,
+                        "y": 524
+                    },
+                    "button7": {
+                        "name": "button7",
+                        "x": 1756,
+                        "y": 560
+                    },
+                    "button8": {
+                        "name": "button8",
+                        "x": 1562,
+                        "y": 592
+                    },
+                    "button9": {
+                        "name": "button9",
+                        "x": 1370,
+                        "y": 560
+                    },
+                    "button10": {
+                        "name": "button10",
+                        "x": 1562,
+                        "y": 560
+                    },
+                    "button11": {
+                        "name": "button11",
+                        "x": 1562,
+                        "y": 367
+                    },
+                    "button12": {
+                        "name": "button12",
+                        "x": 1756,
+                        "y": 402
+                    },
+                    "button13": {
+                        "name": "button13",
+                        "x": 1562,
+                        "y": 437
+                    },
+                    "button14": {
+                        "name": "button14",
+                        "x": 1370,
+                        "y": 402
+                    },
+                    "button15": {
+                        "name": "button15",
+                        "x": 1562,
+                        "y": 402
+                    },
+                    "button16": {
+                        "name": "button16",
+                        "x": 1562,
+                        "y": 683
+                    },
+                    "button17": {
+                        "name": "button17",
+                        "x": 1756,
+                        "y": 718
+                    },
+                    "button18": {
+                        "name": "button18",
+                        "x": 1562,
+                        "y": 752
+                    },
+                    "button19": {
+                        "name": "button19",
+                        "x": 1370,
+                        "y": 718
+                    },
+                    "button20": {
+                        "name": "button20",
+                        "x": 1562,
+                        "y": 718
+                    },
+                    "button21": {
+                        "name": "button21",
+                        "x": 278,
+                        "y": 243
+                    },
+                    "button22": {
+                        "name": "button22",
+                        "x": 278,
+                        "y": 278
+                    },
+                    "button23": {
+                        "name": "button23",
+                        "x": 123,
+                        "y": 614
+                    },
+                    "button24": {
+                        "name": "button24",
+                        "x": 123,
+                        "y": 648
+                    },
+                    "button25": {
+                        "name": "button25",
+                        "x": 471,
+                        "y": 614
+                    },
+                    "button26": {
+                        "name": "button26",
+                        "x": 471,
+                        "y": 648
+                    },
+                    "button27": {
+                        "name": "button27",
+                        "x": 85,
+                        "y": 505
+                    },
+                    "button28": {
+                        "name": "button28",
+                        "x": 278,
+                        "y": 505
+                    },
+                    "button29": {
+                        "name": "button29",
+                        "x": 471,
+                        "y": 505
+                    },
+                    "z": {
+                        "name": "z",
+                        "x": 278,
+                        "y": 719
+                    },
+                    "x": {
+                        "name": "x",
+                        "x": 875,
+                        "y": 86
+                    },
+                    "y": {
+                        "name": "y",
+                        "x": 875,
+                        "y": 122
+                    },
+                    "rotz": {
+                        "name": "rotz",
+                        "x": 875,
+                        "y": 155
+                    },
+                    "rotx": {
+                        "name": "rotx",
+                        "x": 1755,
+                        "y": 262
+                    },
+                    "roty": {
+                        "name": "roty",
+                        "x": 1755,
+                        "y": 295
+                    }
                 }
             }
         }

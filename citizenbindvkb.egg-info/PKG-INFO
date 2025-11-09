@@ -1,0 +1,55 @@
+Metadata-Version: 2.4
+Name: citizenbindvkb
+Version: 0.1.0
+Summary: Toolkit for managing Star Citizen joystick bindings with a PyQt6 UI.
+Project-URL: homepage, https://github.com/TheCodingLand/StarCitizenBindVkb
+Project-URL: repository, https://github.com/TheCodingLand/StarCitizenBindVkb
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.6.0
+Requires-Dist: pydantic-settings>=2.3.0
+Requires-Dist: PyQt6>=6.6.0
+Requires-Dist: rich>=13.7.0
+Requires-Dist: xmltodict>=0.13.0
+Requires-Dist: pygame
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.0; extra == "dev"
+Requires-Dist: pytest-qt>=4.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
+Requires-Dist: ruff>=0.5.0; extra == "dev"
+Requires-Dist: mypy>=1.10.0; extra == "dev"
+Requires-Dist: nuitka>=2.4.0; extra == "dev"
+
+
+[![Tests](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/test.yml/badge.svg)](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/test.yml)
+[![Build](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/build.yml/badge.svg)](https://github.com/TheCodingLand/StarCitizenBindVkb/actions/workflows/build.yml)
+![Coverage](./coverage.svg)
+
+
+<p align="left">
+<img src="logo.png" alt="logo" width=400>
+<p>
+
+## Work in Progress
+
+This project is currently a work in progress and is not yet useful. The goal of this project is to provide a tool for users with VKB joysticks to quickly view, save, edit, and reapply their various control mappings exported from Star Citizen without needing to enter the game.
+
+### Demo
+
+![Demo](wip.gif)
+
+### Features
+
+- **View Control Mappings**: Easily view your joystick control mappings exported from Star Citizen.
+- **Save Configurations**: Save your current joystick configurations to a file.
+- **Edit Configurations**: Edit your joystick configurations outside of the game.
+- **Reapply Configurations**: Reapply your edited configurations back into the game.
+- **Joystick Identification**: Solve issues where Star Citizen loses track of which joystick is joystick 1, 2, 3, etc., whenever another device is plugged in and the game is launched,  forcing you to resort devices, and losing track of axis settings.
+
+### Future Plans
+
+- Improve the user interface for better usability.
+- Add more robust error handling and validation.
+- Enhance the configuration editing capabilities.
+
+Stay tuned for updates as we continue to develop and improve this tool!

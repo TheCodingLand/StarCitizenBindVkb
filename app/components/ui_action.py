@@ -4,7 +4,7 @@ from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtCore import Qt, QSortFilterProxyModel, QModelIndex
 from pydantic import BaseModel
 from app.globals import localization_file
-from app.models.actions import AllActionMaps
+from models.full_game_control_options import AllActionMaps
 
 class WidgetItemRoleData(BaseModel):
     is_category: bool = False
