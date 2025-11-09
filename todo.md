@@ -8,7 +8,7 @@
 - [ ] Add packaging docs to `README.md` once the build path is confirmed.
 
 ## Codebase Cleanup
-- [ ] Stabilize the remaining TODOs in `app/ui.py` (action panel refresh, unsupported actions table, export flow). *Joystick side mapping hardened; action panel refresh auto-syncs; unsupported table now tracks unknown buttons/sliders; export work still open.*
+- [ ] Stabilize the remaining TODOs in `app/ui.py` (action panel refresh, unsupported actions table, export flow). *Joystick side mapping hardened; action panel refresh auto-syncs; unsupported table counts + styles entries; export work still open.*
 - [ ] Extract joystick binding state management into dedicated service modules to trim the QWidget class size.
 - [ ] Normalize data flow between `app/models` and `app/utils` (remove circular imports and duplicated helpers).
 - [ ] Audit `app/models/exported_configmap_xml.py` for dead fields and tighten type hints.

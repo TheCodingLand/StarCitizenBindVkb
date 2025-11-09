@@ -9,6 +9,7 @@ from app.models import exported_configmap_xml as configmap
 from app.models.joystick import JoyAction
 from PyQt6.QtWidgets import QApplication, QDialogButtonBox
 from PyQt6.QtCore import Qt
+from app.domain import ValidationIssue, ValidationReport
 from app.ui import ControlMapperApp, joystick_buttons
 from app.components.settings_dialog import SettingsDialog
 
@@ -288,7 +289,14 @@ def test_process_rebind_records_unsupported(main_window: ControlMapperApp) -> No
 
 def test_unsupported_actions_label_updates(main_window: ControlMapperApp) -> None:
     """Label should reflect the number of unsupported mappings."""
-    assert main_window.unsupported_actions_label.text() == "Unsupported Actions (none)"
+    main_window.update_unsupported_actions_table()
+    initial_count = len(main_window.unsupported_actions)
+    expected_initial = (
+        "Unsupported Actions (none)"
+        if initial_count == 0
+        else f"Unsupported Actions ({initial_count})"
+    )
+    assert main_window.unsupported_actions_label.text() == expected_initial
 
     entry: Dict[str, Any] = {
         "action_name": "test_action",
@@ -298,8 +306,27 @@ def test_unsupported_actions_label_updates(main_window: ControlMapperApp) -> Non
     }
     main_window.unsupported_actions.append(entry)
     main_window.update_unsupported_actions_table()
-    assert main_window.unsupported_actions_label.text() == "Unsupported Actions (1)"
+    assert (
+        main_window.unsupported_actions_label.text() == f"Unsupported Actions ({initial_count + 1})"
+    )
 
     main_window.unsupported_actions.clear()
     main_window.update_unsupported_actions_table()
     assert main_window.unsupported_actions_label.text() == "Unsupported Actions (none)"
+
+
+def test_validation_status_label(main_window: ControlMapperApp) -> None:
+    """Validation status label reflects report severity."""
+    main_window.update_validation_status_indicator(None)
+    assert main_window.validation_status_label.text() == "Binding status: Not evaluated"
+
+    report = ValidationReport()
+    report.add(ValidationIssue(level="warning", message="example warning"))
+    main_window.update_validation_status_indicator(report)
+    assert main_window.validation_status_label.text() == "Binding status: 1 warning(s)"
+
+    report = ValidationReport()
+    report.add(ValidationIssue(level="error", message="example error"))
+    report.add(ValidationIssue(level="ERROR", message="another"))
+    main_window.update_validation_status_indicator(report)
+    assert main_window.validation_status_label.text() == "Binding status: 2 error(s)"

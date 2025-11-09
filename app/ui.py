@@ -292,6 +292,10 @@ class ControlMapperApp(QMainWindow):
         self.unsupported_actions_table_widget.setFixedHeight(400)
         self.action_panel_layout.addWidget(self.unsupported_actions_table_widget)
 
+        self.validation_status_label = QLabel("Binding status: Not evaluated", self.action_panel)
+        self.validation_status_label.setStyleSheet("color: #666666;")
+        self.action_panel_layout.addWidget(self.validation_status_label)
+
     def toggle_modifier(self) -> None:
         self.modifier_enabled = not self.modifier_enabled
         self.modifier_button.setText(
@@ -318,6 +322,7 @@ class ControlMapperApp(QMainWindow):
         self.load_joystick_mappings()
         self.update_joystick_buttons()
         self.binding_planner_context.default_profile = self.build_control_profile_snapshot()
+        self.update_validation_status_indicator(None)
 
     def select_control_map(self, index: int) -> None:
         if index < 0 or index >= len(self.exported_control_maps):
@@ -417,6 +422,27 @@ class ControlMapperApp(QMainWindow):
             self.unsupported_actions_label.setText("Unsupported Actions (none)")
             self.unsupported_actions_label.setStyleSheet("color: #666666;")
 
+    def update_validation_status_indicator(self, report: Optional[ValidationReport]) -> None:
+        if report is None:
+            self.validation_status_label.setText("Binding status: Not evaluated")
+            self.validation_status_label.setStyleSheet("color: #666666;")
+            return
+
+        error_count = sum(1 for issue in report.issues if issue.level.lower() == "error")
+        warning_count = sum(
+            1 for issue in report.issues if issue.level.lower() in {"warn", "warning"}
+        )
+
+        if error_count:
+            self.validation_status_label.setText(f"Binding status: {error_count} error(s)")
+            self.validation_status_label.setStyleSheet("color: #cc3300; font-weight: bold;")
+        elif warning_count:
+            self.validation_status_label.setText(f"Binding status: {warning_count} warning(s)")
+            self.validation_status_label.setStyleSheet("color: #cc7a00; font-weight: bold;")
+        else:
+            self.validation_status_label.setText("Binding status: OK")
+            self.validation_status_label.setStyleSheet("color: #2e7d32; font-weight: bold;")
+
     def load_joystick_mappings(self) -> None:
         self.unsupported_actions.clear()
         self.left_joystick_config.clear_mappings()
@@ -429,6 +455,7 @@ class ControlMapperApp(QMainWindow):
         self.apply_default_bindings()
 
         self.update_unsupported_actions_table()
+        self.update_validation_status_indicator(None)
 
     def process_action_map(self, actionmap: ActionMap) -> None:
         for action in actionmap.action:
@@ -870,6 +897,8 @@ class ControlMapperApp(QMainWindow):
 
         self.control_map = export_map
         unparse(export_map)
+
+        self.update_validation_status_indicator(report)
 
     def remove_selected_action(self) -> None:
         """
