@@ -1,6 +1,6 @@
 {
-    "installation_path": "/new/path",
-    "install_type": "PTU",
+    "installation_path": "F:/Star Citizen/StarCitizen",
+    "install_type": "LIVE",
     "joystick_left_name_filter": "New Left Joystick",
     "joystick_right_name_filter": "New Right Joystick",
     "joystick_type_left": "New Type Left",

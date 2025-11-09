@@ -4,7 +4,7 @@ import sys
 import json
 import logging
 import copy
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, Optional, List
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QRect, Qt, QEvent, QObject
-from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtGui import QIcon
 from PyQt6 import QtGui
 import app.models.exported_configmap_xml as configmap
 from app.config import Config
@@ -270,8 +270,9 @@ class ControlMapperApp(QMainWindow):
         self.action_panel_layout.addStretch()
 
         # **Add Unsupported Actions Section**
-        self.unsupported_actions_label = QLabel("Unsupported Actions:", self.action_panel)
+        self.unsupported_actions_label = QLabel("Unsupported Actions (none)", self.action_panel)
         self.action_panel_layout.addWidget(self.unsupported_actions_label)
+        self._update_unsupported_actions_label()
 
         # Create a QTableWidget to display unsupported actions
         self.unsupported_actions_table_widget: QTableWidget = QTableWidget(self.action_panel)
@@ -343,15 +344,38 @@ class ControlMapperApp(QMainWindow):
 
     def get_joystick_sides(self, control_map: ExportedActionMapsFile) -> Dict[int, str]:
         instance_number_mapping: Dict[int, str] = {}
+        if control_map is None:
+            return instance_number_mapping
+
+        left_filter = self.config.joystick_left_name_filter
+        right_filter = self.config.joystick_right_name_filter
+        left_identifier = self.config.joystick_side_identifier_left
+        right_identifier = self.config.joystick_side_identifier_right
+
         for option in control_map.options:
-            if option.product is None:
+            if option.product is None or option.instance is None:
                 continue
-            if self.config.joystick_left_name_filter in option.product:
-                product_name: str = option.product.split("{")[0]
-                side: str = (
-                    "left" if self.config.joystick_side_identifier_left in product_name else "right"
-                )
+
+            product_name = option.product.split("{")[0]
+            side: Optional[str] = None
+
+            if left_filter and left_filter in product_name:
+                side = "left"
+            elif right_filter and right_filter in product_name:
+                side = "right"
+            elif left_identifier and left_identifier in product_name:
+                side = "left"
+            elif right_identifier and right_identifier in product_name:
+                side = "right"
+
+            if side:
                 instance_number_mapping[option.instance] = side
+
+        if self.config.joystick_instance_left not in instance_number_mapping:
+            instance_number_mapping[self.config.joystick_instance_left] = "left"
+        if self.config.joystick_instance_right not in instance_number_mapping:
+            instance_number_mapping[self.config.joystick_instance_right] = "right"
+
         return instance_number_mapping
 
     def update_unsupported_actions_table(self) -> None:
@@ -382,6 +406,16 @@ class ControlMapperApp(QMainWindow):
 
         # Adjust column widths
         self.unsupported_actions_table_widget.resizeColumnsToContents()
+        self._update_unsupported_actions_label()
+
+    def _update_unsupported_actions_label(self) -> None:
+        count = len(self.unsupported_actions)
+        if count:
+            self.unsupported_actions_label.setText(f"Unsupported Actions ({count})")
+            self.unsupported_actions_label.setStyleSheet("color: #cc3300; font-weight: bold;")
+        else:
+            self.unsupported_actions_label.setText("Unsupported Actions (none)")
+            self.unsupported_actions_label.setStyleSheet("color: #666666;")
 
     def load_joystick_mappings(self) -> None:
         self.unsupported_actions.clear()
@@ -431,18 +465,16 @@ class ControlMapperApp(QMainWindow):
                 js_number: int = int(js_str[2:])
             except ValueError:
                 return
-            side: str = self.joystick_sides[js_number]
+            side = self.joystick_sides.get(js_number)
+            if side is None:
+                logger.warning("Joystick instance %s is not mapped to a side", js_number)
+                self._record_unsupported_action(action.name, js_button, modifier, None)
+                return
             try:
                 default_action_conf: List[GameAction] = all_default_actions[action.name]
             except KeyError:
                 logger.warning(f"Action {action.name} not found in default actions.")
-                unsupported_action_info: Dict[str, Union[str, bool]] = {
-                    "action_name": action.name,
-                    "button": js_button,
-                    "modifier": modifier,
-                    "side": side,
-                }
-                self.unsupported_actions.append(unsupported_action_info)
+                self._record_unsupported_action(action.name, js_button, modifier, side)
                 return
             for game_action in default_action_conf:
                 # hold: bool = game_action.activation_mode == "delayed_press"
@@ -452,7 +484,11 @@ class ControlMapperApp(QMainWindow):
                 multitap: bool = rebind.multitap is not None
                 button = joystick_buttons.get(js_button)
                 if button is None:
+                    if "slider" in js_button.lower():
+                        self._record_unsupported_action(action.name, js_button, modifier, side)
+                        continue
                     logger.warning(f"Button {js_button} not found in joystick_buttons.")
+                    self._record_unsupported_action(action.name, js_button, modifier, side)
                     continue
                 joy_action = JoyAction(
                     name=action.name,
@@ -475,12 +511,28 @@ class ControlMapperApp(QMainWindow):
         except Exception as e:
             logger.exception(f"Error processing rebind: {e}")
 
+    def _record_unsupported_action(
+        self,
+        action_name: str,
+        button: str,
+        modifier: bool,
+        side: Optional[str],
+    ) -> None:
+        entry: Dict[str, Any] = {
+            "action_name": action_name,
+            "button": button,
+            "modifier": modifier,
+            "side": side or "unknown",
+        }
+        if entry not in self.unsupported_actions:
+            self.unsupported_actions.append(entry)
+
     def apply_default_bindings(self) -> None:
         """
         Reapply default binds for actions not set elsewhere.
         """
         # Collect all configured action names
-        configured_action_names = set()
+        configured_action_names: set[str] = set()
         for action in self.left_joystick_config.configured_actions.values():
             configured_action_names.add(action.name)
         for action in self.right_joystick_config.configured_actions.values():
@@ -503,20 +555,42 @@ class ControlMapperApp(QMainWindow):
                     continue
                 if action.joystick is None:
                     continue
+                raw_button: Optional[str]
                 if isinstance(action.joystick, str):
-                    # hold = bind.joystick. == "delayed_press"
                     hold = action.activation_mode == "delayed_press"
-                    js_button = action.joystick
-
+                    raw_button = action.joystick
                 else:
-                    js_button = action.joystick.input
-                    hold = action.joystick.activationmode == "delayed_press"
-                if js_button in [" ", ""]:
+                    raw_button = action.joystick.input if action.joystick else None
+                    hold = (
+                        action.joystick.activationmode == "delayed_press"
+                        if action.joystick is not None
+                        else False
+                    )
+                js_button = (raw_button or "").strip()
+                if not js_button:
                     continue
                 modifier = "+" in js_button
                 if modifier:
                     js_button = js_button.split("+")[-1]
-                if "slider" in js_button:
+                js_button = js_button.strip()
+                if not js_button:
+                    continue
+                if "slider" in js_button.lower():
+                    self._record_unsupported_action(
+                        action.name,
+                        js_button,
+                        modifier,
+                        default_joystick.side,
+                    )
+                    continue
+                button = joystick_buttons.get(js_button)
+                if button is None:
+                    self._record_unsupported_action(
+                        action.name,
+                        js_button,
+                        modifier,
+                        default_joystick.side,
+                    )
                     continue
                 joy_action = JoyAction(
                     name=action.name,
@@ -526,7 +600,7 @@ class ControlMapperApp(QMainWindow):
                     category=main_cat,
                     sub_category=sub_cat,
                     modifier=modifier,
-                    button=joystick_buttons[js_button],
+                    button=button,
                 )
 
                 default_joystick.set_mapping(joy_action)
@@ -552,6 +626,7 @@ class ControlMapperApp(QMainWindow):
             self.switch_button.setText("Switch to Right Joystick")
             self.load_joystick_image(str(left_image_path))
         self.update_joystick_buttons()
+        self.refresh_action_panel()
 
     def save_current_mappings(self) -> None:
         pass  # Implement if needed
@@ -660,6 +735,23 @@ class ControlMapperApp(QMainWindow):
         # Adjust column widths
         self.actions_table_widget.resizeColumnsToContents()
 
+    def refresh_action_panel(self) -> None:
+        """Synchronise the action panel with the currently selected button/state."""
+        if not self.selected_button_label:
+            self.actions_table_widget.setRowCount(0)
+            self.selected_button_label_widget.setText("Selected Button: None")
+            return
+
+        button = self.button_refs.get(self.selected_button_label)
+        if button is None:
+            self.actions_table_widget.setRowCount(0)
+            self.selected_button_label_widget.setText("Selected Button: None")
+            self.selected_button_label = None
+            self.previous_selected_button = None
+            return
+
+        self.show_action_panel(button, self.selected_button_label)
+
     def add_action_to_button(self) -> None:
         """
         Open the action selection dialog and add the selected action to the button.
@@ -767,8 +859,8 @@ class ControlMapperApp(QMainWindow):
         self.binding_validation_report = report
         self._log_binding_validation_report(report)
 
-        for binding_key in plan.to_remove:
-            self.remove_binding_from_control_map(export_map, binding_key)
+        for binding in plan.to_remove:
+            self.remove_binding_from_control_map(export_map, binding)
 
         for binding in plan.to_add:
             joy_action = self._binding_to_joy_action(binding)
@@ -1036,12 +1128,26 @@ class ControlMapperApp(QMainWindow):
     def remove_binding_from_control_map(
         self,
         control_map: ExportedActionMapsFile,
-        binding_key: str,
+        binding: Binding,
     ) -> None:
-        logger.debug(
-            "Binding removal requested for key %s; targeted removal is not yet implemented.",
-            binding_key,
-        )
+        expected_input = self._build_input_from_binding(binding)
+
+        for actionmap in control_map.actionmap:
+            for action in list(actionmap.action):
+                if action.name != binding.action.name:
+                    continue
+
+                original_count = len(action.rebind)
+                action.rebind = [
+                    rebind for rebind in action.rebind if rebind.input != expected_input
+                ]
+
+                if not action.rebind:
+                    actionmap.action.remove(action)
+                elif len(action.rebind) != original_count:
+                    logger.debug(
+                        "Removed rebind %s for action %s", expected_input, binding.action.name
+                    )
 
     def build_binding_input(self, button: JoyStickButton, side: str, modifier: bool) -> str:
         instance = self.get_instance_number_for_side(side)

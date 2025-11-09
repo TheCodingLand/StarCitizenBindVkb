@@ -141,14 +141,14 @@ class BindingPlan:
     """Represents a staged set of binding mutations to be applied."""
 
     to_add: list[Binding] = field(default_factory=list)
-    to_remove: list[str] = field(default_factory=list)
+    to_remove: list[Binding] = field(default_factory=list)
     validation: ValidationReport = field(default_factory=ValidationReport)
 
     def record_add(self, binding: Binding) -> None:
         self.to_add.append(binding)
 
-    def record_remove(self, binding_key: str) -> None:
-        self.to_remove.append(binding_key)
+    def record_remove(self, binding: Binding) -> None:
+        self.to_remove.append(binding)
 
     def merge(self, other: "BindingPlan") -> None:
         self.to_add.extend(other.to_add)
