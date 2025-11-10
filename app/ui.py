@@ -4,7 +4,7 @@ import sys
 import json
 import logging
 import copy
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, cast
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -29,6 +29,7 @@ import app.models.exported_configmap_xml as configmap
 from app.config import Config
 
 from app.models.full_game_control_options import (
+    DeviceActivation,
     GameAction,
     get_all_defined_game_actions,
     get_all_subcategories_actions,
@@ -56,7 +57,7 @@ from app.models.exported_configmap_xml import (
     get_action_maps_object,
 )
 from app.globals import APP_PATH, get_installation
-import xmltodict
+import xmltodict  # type: ignore[import-untyped]
 
 # Set up logging
 setup_logging()
@@ -240,9 +241,9 @@ class ControlMapperApp(QMainWindow):
         self.actions_table_widget.setHorizontalHeaderLabels(
             ["Action Name", "Modifier", "Multitap", "Hold"]
         )
-        self.actions_table_widget.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
+        actions_header = self.actions_table_widget.horizontalHeader()
+        if actions_header is not None:
+            actions_header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.actions_table_widget.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
         )
@@ -280,9 +281,9 @@ class ControlMapperApp(QMainWindow):
         self.unsupported_actions_table_widget.setHorizontalHeaderLabels(
             ["Action Name", "Button", "Modifier", "Side"]
         )
-        self.unsupported_actions_table_widget.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
+        unsupported_header = self.unsupported_actions_table_widget.horizontalHeader()
+        if unsupported_header is not None:
+            unsupported_header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.unsupported_actions_table_widget.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
         )
@@ -318,7 +319,7 @@ class ControlMapperApp(QMainWindow):
     def set_default_bindings(self) -> None:
         self.control_map = get_action_maps_object(str(DEFAULT_CONTROL_MAP_FILENAME))
         self.control_map_template = copy.deepcopy(self.control_map)
-        self.joystick_sides: Dict[int, str] = self.get_joystick_sides(self.control_map)
+        self.joystick_sides = self.get_joystick_sides(self.control_map)
         self.load_joystick_mappings()
         self.update_joystick_buttons()
         self.binding_planner_context.default_profile = self.build_control_profile_snapshot()
@@ -562,10 +563,10 @@ class ControlMapperApp(QMainWindow):
         """
         # Collect all configured action names
         configured_action_names: set[str] = set()
-        for action in self.left_joystick_config.configured_actions.values():
-            configured_action_names.add(action.name)
-        for action in self.right_joystick_config.configured_actions.values():
-            configured_action_names.add(action.name)
+        for configured_action in self.left_joystick_config.configured_actions.values():
+            configured_action_names.add(configured_action.name)
+        for configured_action in self.right_joystick_config.configured_actions.values():
+            configured_action_names.add(configured_action.name)
 
         # Determine which joystick is js1 (assumed default)
         js1_side = self.joystick_sides.get(1)
@@ -579,22 +580,19 @@ class ControlMapperApp(QMainWindow):
 
         for main_cat, action_game_map in cat_subcat_actions.root.items():
             sub_cat = action_game_map.name
-            for action in action_game_map.action:
-                if action.name in configured_action_names:
+            for game_action in action_game_map.action:
+                if game_action.name in configured_action_names:
                     continue
-                if action.joystick is None:
+                if game_action.joystick is None:
                     continue
                 raw_button: Optional[str]
-                if isinstance(action.joystick, str):
-                    hold = action.activation_mode == "delayed_press"
-                    raw_button = action.joystick
+                if isinstance(game_action.joystick, str):
+                    hold = game_action.activation_mode == "delayed_press"
+                    raw_button = game_action.joystick
                 else:
-                    raw_button = action.joystick.input if action.joystick else None
-                    hold = (
-                        action.joystick.activationmode == "delayed_press"
-                        if action.joystick is not None
-                        else False
-                    )
+                    joystick_activation = cast(DeviceActivation, game_action.joystick)
+                    raw_button = joystick_activation.input
+                    hold = joystick_activation.activationmode == "delayed_press"
                 js_button = (raw_button or "").strip()
                 if not js_button:
                     continue
@@ -606,7 +604,7 @@ class ControlMapperApp(QMainWindow):
                     continue
                 if "slider" in js_button.lower():
                     self._record_unsupported_action(
-                        action.name,
+                        game_action.name,
                         js_button,
                         modifier,
                         default_joystick.side,
@@ -615,19 +613,19 @@ class ControlMapperApp(QMainWindow):
                 button = joystick_buttons.get(js_button)
                 if button is None:
                     self._record_unsupported_action(
-                        action.name,
+                        game_action.name,
                         js_button,
                         modifier,
                         default_joystick.side,
                     )
                     continue
                 joy_action = JoyAction(
-                    name=action.name,
+                    name=game_action.name,
                     input=js_button,
                     multitap=False,
                     hold=hold,
-                    category=main_cat,
-                    sub_category=sub_cat,
+                    category=main_cat or "",
+                    sub_category=sub_cat or "",
                     modifier=modifier,
                     button=button,
                 )

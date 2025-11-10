@@ -1,45 +1,59 @@
-from typing import Any, Dict, List, Literal, Protocol, TypeVar
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
-from scdatatools.sc import StarCitizen # type ignore # requries scdatatools in PYTHONPATH
+from __future__ import annotations
+
 import json
-from typing import Literal, Union
 from pathlib import Path
-import os
+from typing import Any, Dict, Protocol, TypedDict, cast
+
+from scdatatools.sc import StarCitizen  # type: ignore[import]  # requires scdatatools on PYTHONPATH
+
 from app.models.full_game_control_options import GameActionMap
 
-current_folder = Path(__file__).parent.parent
 
-EmbeddedDictOrListType = Union[dict[str, "EmbeddedDictOrListType"], list["EmbeddedDictOrListType"], str, int, float, bool, None]
+class ProfileJson(TypedDict):
+    actionmap: list[Dict[str, Any]]
+
+
+class ProfileRoot(TypedDict):
+    profile: ProfileJson
+
 
 class Profile(Protocol):
-    json: dict[str, EmbeddedDictOrListType]
-   
+    json: ProfileRoot
+
+
 class StarCitizenType(Protocol):
     default_profile: Profile
     version_label: str
-   
 
 
+def gen_actionmap(profile: Profile) -> dict[str, Dict[str, Any]]:
+    """Convert the Star Citizen profile action map into a plain dictionary."""
 
-def gen_actionmap(self: "Profile") -> dict[str, Dict[str, Any]]:
-    m = {}
-    
-    for am in self.json["profile"]["actionmap"]:
-        
-        gam = GameActionMap(**am)
-        m.update({gam.name: gam.model_dump()})
-    return m
+    action_map: dict[str, Dict[str, Any]] = {}
+    actionmaps = profile.json["profile"]["actionmap"]
+
+    for entry in actionmaps:
+        gam = GameActionMap(**entry)
+        action_map[gam.name] = gam.model_dump()
+
+    return action_map
+
+
+def main() -> None:
+    current_folder = Path(__file__).parent.parent
+    sc_folder = Path("f:/Star Citizen/StarCitizen")
+
+    for version in ["PTU", "LIVE"]:
+        sc = cast(StarCitizenType, StarCitizen(sc_folder / version))
+        profile = sc.default_profile
+        v_label: str = sc.version_label
+        output_folder = current_folder / "data" / version / v_label
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        action_map = gen_actionmap(profile)
+        with (output_folder / "actionmap.json").open("w", encoding="utf-8") as handle:
+            handle.write(json.dumps(action_map, indent=4))
 
 
 if __name__ == "__main__":
-    sc_folder= "f:/Star Citizen/StarCitizen"
-    #sc_folder = f"{current_folder}/app/data"
-    for version in ["PTU", "LIVE"]:
-        sc : StarCitizenType = StarCitizen(f'{sc_folder}/{version}')
-        profile = sc.default_profile
-        v_label: str  = sc.version_label
-        output_folder = f"{current_folder}/data/{version}/{v_label}"
-        os.makedirs(output_folder, exist_ok=True)    
-        action_map = gen_actionmap(profile)
-        with open(f"{output_folder}/actionmap.json", "w") as f:
-            f.write(json.dumps(action_map, indent=4))# type: ignore
+    main()
