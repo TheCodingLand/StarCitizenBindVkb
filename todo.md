@@ -4,23 +4,25 @@
 - [x] Exercise the new `uv` workflow (`uv sync`, `uv run`). _Next:_ remove or document `requirements.txt` deprecation.
 - [x] Capture locking/release strategy (e.g. `uv lock`) and wire it into CI. `uv.lock` now checked in; add CI step later.
 - [ ] Validate the Nuitka build script on Windows and produce a distributable artifact. *(Blocked pending service/domain refactor.)*
-- [ ] the Nuitka build should be `onefile`
+- [x] the Nuitka build should be `onefile`. *Configured via `pyproject.toml` onefile flag and verified.*
 - [x] fix github actions errors This request has been automatically failed because it uses a deprecated version of `actions/upload-artifact: v3`
-- [ ] Add packaging docs to `README.md` once the build path is confirmed.
+- [x] Add packaging docs to `README.md` once the build path is confirmed.
+- [x] fix release step : Parameter token or opts.auth is required
 
 ## Codebase Cleanup
 - [ ] Stabilize the remaining TODOs in `app/ui.py` (action panel refresh, unsupported actions table, export flow). *Joystick side mapping hardened; action panel refresh auto-syncs; unsupported table counts + styles entries; export work still open.*
 - [ ] Extract joystick binding state management into dedicated service modules to trim the QWidget class size.
 - [ ] Normalize data flow between `app/models` and `app/utils` (remove circular imports and duplicated helpers).
-- [ ] Audit `app/models/exported_configmap_xml.py` for dead fields and tighten type hints.
+- [x] Audit `app/models/exported_configmap_xml.py` for dead fields and tighten type hints. *Validators cleaned and mypy passes for the module.*
 - [x] Introduce central configuration loading in `app/config.py` with caching/validation. *Config path override + cache tests in place.*
 - [x] Decide how to handle control-map slider inputs (current startup logs `slider1` warnings). *Slider inputs now skipped silently during mapping to avoid noisy logs.*
 
 ## Testing and Quality
 - [ ] Stabilize the Qt UI tests (pytest-qt fixtures, headless execution) and cover regression paths.
 - [ ] Introduce unit coverage around XML export/import round-trips.
-- [ ] Add type-checking (mypy) and linting (ruff) gates to CI.
+- [x] Add type-checking (mypy) and linting (ruff) gates to CI. *CI now runs ``ruff check app/config.py app/utils/logger.py`` and ``mypy app/config.py app/utils/logger.py`` before tests.*
 - [ ] Set up smoke tests for the Nuitka binary (launch, open dialog, exit).
+- [ ] Enhance visuals
 
 ## Feature Planning
 - [ ] Revisit joystick modifier UX (toggle states, visual affordances, persistence).

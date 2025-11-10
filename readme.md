@@ -31,3 +31,14 @@ This project is currently a work in progress and is not yet useful. The goal of 
 - Enhance the configuration editing capabilities.
 
 Stay tuned for updates as we continue to develop and improve this tool!
+
+## Packaging
+
+The repository is set up for reproducible builds using the `uv` toolchain and Nuitka.
+
+1. Ensure dependencies are installed: `uv sync --extra dev`
+2. Build the standalone executable (one-file) via Nuitka:
+	`uv run python -m nuitka --config-file=pyproject.toml`
+3. The resulting binary is written to `dist/nuitka/ScVkbConf.exe`.
+
+For legacy PyInstaller packaging, run `uv run pyinstaller ui.spec` and zip the contents of the generated `dist/ScVkbConfigurator` directory.

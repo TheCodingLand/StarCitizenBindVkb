@@ -1,15 +1,13 @@
 # main.py
 
-from typing import  Optional
+from typing import Optional
 
-from PyQt6.QtWidgets import (
-    QPushButton, QComboBox,
-    QWidget, QVBoxLayout, QHBoxLayout, QFileDialog)
+from PyQt6.QtWidgets import QPushButton, QComboBox, QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtWidgets import QDialog, QFormLayout, QLineEdit, QSpinBox, QDialogButtonBox
 
 from app.config import Config
 
-from app.utils.devices import get_controller_devices #returns List[SystemDevices]
+from app.utils.devices import get_controller_devices  # returns List[SystemDevices]
 
 """ #for reference
 class SystemDevice(BaseModel):
@@ -20,6 +18,7 @@ class SystemDevice(BaseModel):
     num_axes: int
     num_buttons: int
 """
+
 
 class SettingsDialog(QDialog):
     def __init__(self, config: Config, parent: Optional[QWidget] = None):
@@ -55,7 +54,9 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Joystick Left Name Filter:", self.joystick_left_name_filter_line_edit)
 
         # Joystick Right Name Filter
-        self.joystick_right_name_filter_line_edit = QLineEdit(self.config.joystick_right_name_filter)
+        self.joystick_right_name_filter_line_edit = QLineEdit(
+            self.config.joystick_right_name_filter
+        )
         form_layout.addRow("Joystick Right Name Filter:", self.joystick_right_name_filter_line_edit)
 
         # Joystick Type Left
@@ -66,7 +67,6 @@ class SettingsDialog(QDialog):
         self.joystick_type_right_line_edit = QLineEdit(self.config.joystick_type_right)
         form_layout.addRow("Joystick Type Right:", self.joystick_type_right_line_edit)
 
-        
         # Joystick Instance Left
         self.joystick_instance_left_spin_box = QSpinBox()
         self.joystick_instance_left_spin_box.setValue(self.config.joystick_instance_left)
@@ -77,21 +77,30 @@ class SettingsDialog(QDialog):
         self.joystick_instance_right_spin_box.setValue(self.config.joystick_instance_right)
         form_layout.addRow("Joystick Instance Right:", self.joystick_instance_right_spin_box)
 
-        self.joystick_side_identifier_left_line_edit = QLineEdit(self.config.joystick_side_identifier_left)
-        form_layout.addRow("Joystick Side Identifier Left:", self.joystick_side_identifier_left_line_edit)
+        self.joystick_side_identifier_left_line_edit = QLineEdit(
+            self.config.joystick_side_identifier_left
+        )
+        form_layout.addRow(
+            "Joystick Side Identifier Left:", self.joystick_side_identifier_left_line_edit
+        )
 
-        self.joystick_side_identifier_right_line_edit = QLineEdit(self.config.joystick_side_identifier_right)
-        form_layout.addRow("Joystick Side Identifier Right:", self.joystick_side_identifier_right_line_edit)
-        
+        self.joystick_side_identifier_right_line_edit = QLineEdit(
+            self.config.joystick_side_identifier_right
+        )
+        form_layout.addRow(
+            "Joystick Side Identifier Right:", self.joystick_side_identifier_right_line_edit
+        )
+
         # Modifier Key
         self.modifier_key_line_edit = QLineEdit(self.config.modifier_key)
         form_layout.addRow("Modifier Key:", self.modifier_key_line_edit)
 
-
         self.layout.addLayout(form_layout)
 
         # OK and Cancel buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         self.layout.addWidget(button_box)
@@ -113,8 +122,12 @@ class SettingsDialog(QDialog):
         self.config.joystick_type_right = self.joystick_type_right_line_edit.text()
         self.config.joystick_instance_left = self.joystick_instance_left_spin_box.value()
         self.config.joystick_instance_right = self.joystick_instance_right_spin_box.value()
-        self.config.joystick_side_identifier_left = self.joystick_side_identifier_left_line_edit.text()
-        self.config.joystick_side_identifier_right = self.joystick_side_identifier_right_line_edit.text()
+        self.config.joystick_side_identifier_left = (
+            self.joystick_side_identifier_left_line_edit.text()
+        )
+        self.config.joystick_side_identifier_right = (
+            self.joystick_side_identifier_right_line_edit.text()
+        )
         self.config.modifier_key = self.modifier_key_line_edit.text()
         self.config.save()
         super().accept()

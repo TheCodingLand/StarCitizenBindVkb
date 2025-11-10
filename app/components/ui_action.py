@@ -1,10 +1,13 @@
-from typing import Optional
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTreeView, QLineEdit
-from PyQt6.QtGui import QStandardItemModel, QStandardItem
-from PyQt6.QtCore import Qt, QSortFilterProxyModel, QModelIndex
+from typing import Any, Optional, cast
+
+from PyQt6.QtCore import QModelIndex, Qt, QSortFilterProxyModel
+from PyQt6.QtGui import QStandardItem, QStandardItemModel
+from PyQt6.QtWidgets import QDialog, QHeaderView, QLineEdit, QTreeView, QVBoxLayout
 from pydantic import BaseModel
+
 from app.globals import localization_file
-from models.full_game_control_options import AllActionMaps
+from app.models.full_game_control_options import AllActionMaps
+
 
 class WidgetItemRoleData(BaseModel):
     is_category: bool = False
@@ -33,19 +36,31 @@ class ActionSelectionDialog(QDialog):
 
         # Original model
         self.model = QStandardItemModel()
-        self.root_node = self.model.invisibleRootItem()
+        root_node = self.model.invisibleRootItem()
+        if root_node is None:  # Defensive for type-checking; Qt should always return a root
+            raise RuntimeError("QStandardItemModel did not return a root item")
+        self.root_node = root_node
 
         for category, sub_actions in self.action_objs.root.items():
             category_item = QStandardItem(localization_file.get_localization_string(category))
-            category_item.setData(WidgetItemRoleData(is_category=True, original_name=category), Qt.ItemDataRole.UserRole)
-            
+            category_item.setData(
+                WidgetItemRoleData(is_category=True, original_name=category),
+                Qt.ItemDataRole.UserRole,
+            )
 
             for action in sub_actions.action:
-                action_label = localization_file.get_localization_string(action.ui_label) if action.ui_label else action.name
+                action_label = (
+                    localization_file.get_localization_string(action.ui_label)
+                    if action.ui_label
+                    else action.name
+                )
                 action_item = QStandardItem(action_label)
-                #action_item.setData(action.name, Qt.ItemDataRole.UserRole)  # Original action name
-                #action_item.setData(action_label, Qt.ItemDataRole.DisplayRole)  # Localized label
-                action_item.setData(WidgetItemRoleData(original_name=action.name, translated_name=action_label, is_category=False), Qt.ItemDataRole.UserRole)
+                action_item.setData(
+                    WidgetItemRoleData(
+                        original_name=action.name, translated_name=action_label, is_category=False
+                    ),
+                    Qt.ItemDataRole.UserRole,
+                )
                 category_item.appendRow(action_item)
             self.root_node.appendRow(category_item)
 
@@ -56,12 +71,16 @@ class ActionSelectionDialog(QDialog):
 
         self.tree_view.setModel(self.proxy_model)
         self.tree_view.expandAll()
-        self.tree_view.doubleClicked.connect(self.on_item_double_clicked)
+        double_clicked_signal = cast(Any, self.tree_view.doubleClicked)
+        double_clicked_signal.connect(self.on_item_double_clicked)
         layout.addWidget(self.tree_view)
-        self.tree_view.header().hide()
+        header = self.tree_view.header()
+        if isinstance(header, QHeaderView):
+            header.hide()
 
         # Connect the search bar text change to the filter function
-        self.search_bar.textChanged.connect(self.on_search_text_changed)
+        text_changed_signal = cast(Any, self.search_bar.textChanged)
+        text_changed_signal.connect(self.on_search_text_changed)
 
     def on_search_text_changed(self, text: str) -> None:
         # Set the filter to match the search text
@@ -72,13 +91,15 @@ class ActionSelectionDialog(QDialog):
         # Map the proxy index to the source index
         source_index = self.proxy_model.mapToSource(index)
         item = self.model.itemFromIndex(source_index)
-        if item:
+        if item is not None:
             if item.hasChildren():
                 # Expand or collapse the category
                 expanded = self.tree_view.isExpanded(index)
                 self.tree_view.setExpanded(index, not expanded)
             else:
-                self.selected_action = item.data(Qt.ItemDataRole.UserRole).original_name
+                role_data = item.data(Qt.ItemDataRole.UserRole)
+                if isinstance(role_data, WidgetItemRoleData):
+                    self.selected_action = role_data.original_name
                 self.accept()
 
 
@@ -96,21 +117,39 @@ class ActionFilterProxyModel(QSortFilterProxyModel):
             return True  # Show all rows if search text is empty
 
         # Access the item by row and parent index
-        index = self.sourceModel().index(source_row, 0, source_parent)
-        item = self.sourceModel().itemFromIndex(index)
-        data: Optional[WidgetItemRoleData] = item.data(Qt.ItemDataRole.UserRole)
+        model = self.sourceModel()
+        if model is None:
+            return False
+
+        index = model.index(source_row, 0, source_parent)
+        item_model = cast(QStandardItemModel, model)
+        item = item_model.itemFromIndex(index)
+        if item is None:
+            return False
+
+        data = item.data(Qt.ItemDataRole.UserRole)
+        role_data = data if isinstance(data, WidgetItemRoleData) else None
 
         # Check if the current item matches
         search_text_lower = self.search_text.lower()
-        if data and (
-            (not data.is_category and (search_text_lower in data.original_name.lower() or search_text_lower in data.translated_name.lower()))
-            or (data.is_category and search_text_lower in data.original_name.lower())
+        if role_data and (
+            (
+                not role_data.is_category
+                and (
+                    search_text_lower in role_data.original_name.lower()
+                    or search_text_lower in role_data.translated_name.lower()
+                )
+            )
+            or (role_data.is_category and search_text_lower in role_data.original_name.lower())
         ):
             return True
 
         # Recursively check if any children match
         for row in range(item.rowCount()):
-            child_index = item.child(row).index()
+            child = item.child(row)
+            if child is None:
+                continue
+            child_index = child.index()
             if self.filterAcceptsRow(child_index.row(), index):
                 return True
 
