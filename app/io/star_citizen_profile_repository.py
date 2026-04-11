@@ -40,6 +40,7 @@ class StarCitizenProfileRepository:
         profile = WorkingProfile(
             profile_name=document.profileName,
             role_device_tokens={role: device for device, role in imported_role_map.items()},
+                GameCatalog,
             source_path=path,
             source_document=document,
         )
@@ -50,7 +51,7 @@ class StarCitizenProfileRepository:
             for action in action_map.action:
                 for rebind_index, rebind in enumerate(action.rebind or []):
                     record_id = self._record_id(action_map.name, action.name, rebind_index)
-                    classification = self._classify_rebind(
+                    active_catalog = catalog or self._load_catalog()
                         action_map_name=action_map.name,
                         action=action,
                         rebind=rebind,
@@ -72,19 +73,31 @@ class StarCitizenProfileRepository:
 
     def export_profile(self, session: BindingSession) -> ExportResult:
         profile = session.profile
+        actively_replaced_passthrough_ids = {
+            binding.replaced_passthrough_record_id
+            for binding in profile.bindings
+            if binding.replaced_passthrough_record_id is not None
+        }
+        preserved_passthrough_count = sum(
+                    catalog = session.catalog_snapshot.catalog if session.catalog_snapshot is not None else self._load_catalog()
+            1 for record in profile.passthrough_records if record.record_id not in actively_replaced_passthrough_ids
+        )
         if profile.source_document is None:
             return ExportResult(
                 changed_bindings=list(profile.bindings),
-                preserved_passthrough_count=len(profile.passthrough_records),
+                preserved_passthrough_count=preserved_passthrough_count,
             )
 
         document = profile.source_document.model_copy(deep=True)
-        self._remove_editable_source_rebinds(document, profile.editable_source_record_ids)
+        self._remove_source_rebinds(
+            document,
+                    self._apply_bindings(document, profile.bindings, profile.role_device_tokens, catalog)
+        )
         self._apply_bindings(document, profile.bindings, profile.role_device_tokens)
 
         return ExportResult(
             changed_bindings=list(profile.bindings),
-            preserved_passthrough_count=len(profile.passthrough_records),
+            preserved_passthrough_count=preserved_passthrough_count,
             document=document,
         )
 
@@ -217,6 +230,7 @@ class StarCitizenProfileRepository:
             trigger_mode=trigger_mode,
             modifier_token=modifier_token,
             source_record_id=record_id,
+            source_actionmap_name=action_map_name,
         )
 
     def _load_role_layout(self, role: str):
@@ -248,9 +262,9 @@ class StarCitizenProfileRepository:
     @staticmethod
     def _trigger_mode_from_rebind(rebind: Rebind, modifier_token: str | None) -> TriggerMode:
         activation_mode = str((rebind.model_extra or {}).get("@activationMode") or "").strip().lower()
-        if rebind.multitap not in {None, 0} or activation_mode == "double_tap":
+        if rebind.multitap not in {None, 0} or activation_mode.startswith("double_tap"):
             return TriggerMode.MULTITAP
-        if activation_mode == "delayed_press":
+        if activation_mode.startswith("delayed_press"):
             return TriggerMode.HOLD
         if modifier_token:
             return TriggerMode.MODIFIER
@@ -262,10 +276,10 @@ class StarCitizenProfileRepository:
             return f"modifier:{modifier_token or 'modifier'}"
         return trigger_mode.value
 
-    def _remove_editable_source_rebinds(
+    def _remove_source_rebinds(
         self,
         document: ExportedActionMapsFile,
-        editable_source_record_ids: set[str],
+        removed_record_ids: set[str],
     ) -> None:
         for action_map in document.actionmap:
             for action in action_map.action:
@@ -273,7 +287,7 @@ class StarCitizenProfileRepository:
                     rebind
                     for rebind_index, rebind in enumerate(action.rebind or [])
                     if self._record_id(action_map.name, action.name, rebind_index)
-                    not in editable_source_record_ids
+                    not in removed_record_ids
                 ]
 
     def _apply_bindings(
@@ -287,9 +301,16 @@ class StarCitizenProfileRepository:
 
         grouped_bindings: dict[str, list[BindingEdit]] = defaultdict(list)
         for binding in bindings:
-            actionmap_name = catalog.actionmap_by_name.get(binding.action_name)
+            if (
+                binding.source_actionmap_name is None
+                and len(catalog.actionmaps_by_name.get(binding.action_name, ())) > 1
+            ):
+                raise ValueError(
+                    f"Action '{binding.action_name}' exists in multiple actionmaps and requires source actionmap context."
+                )
+            actionmap_name = binding.source_actionmap_name or catalog.actionmap_by_name.get(binding.action_name)
             if actionmap_name is None:
-                continue
+                raise ValueError(f"Unknown catalog action '{binding.action_name}'.")
             grouped_bindings[actionmap_name].append(binding)
 
         for actionmap_name, action_bindings in grouped_bindings.items():
@@ -300,6 +321,11 @@ class StarCitizenProfileRepository:
                 actionmaps_by_name[actionmap_name] = action_map
 
             for binding in action_bindings:
+                layout = self._load_role_layout(binding.role)
+                if layout is None or binding.slot_id not in layout.slots:
+                    raise ValueError(
+                        f"Unknown slot '{binding.slot_id}' for role '{binding.role}'."
+                    )
                 action = next(
                     (candidate for candidate in action_map.action if candidate.name == binding.action_name),
                     None,
@@ -309,16 +335,22 @@ class StarCitizenProfileRepository:
                     action_map.action.append(action)
 
                 rendered_input = self._render_binding_input(binding, role_device_tokens)
-                if any(existing.input == rendered_input for existing in action.rebind):
+                new_rebind = self._build_rebind(rendered_input, binding)
+                if any(
+                    self._rebind_signature(existing) == self._rebind_signature(new_rebind)
+                    for existing in action.rebind
+                ):
                     continue
-                action.rebind.append(self._build_rebind(rendered_input, binding))
+                action.rebind.append(new_rebind)
 
     def _render_binding_input(
         self,
         binding: BindingEdit,
         role_device_tokens: dict[str, str],
     ) -> str:
-        device_token = role_device_tokens.get(binding.role, binding.role)
+        device_token = role_device_tokens.get(binding.role)
+        if device_token is None:
+            raise ValueError(f"Missing imported device token for role '{binding.role}'.")
         if binding.trigger_mode is TriggerMode.MODIFIER and binding.modifier_token:
             return f"{device_token}_{binding.modifier_token}+{binding.slot_id}"
         return f"{device_token}_{binding.slot_id}"
@@ -331,3 +363,9 @@ class StarCitizenProfileRepository:
         if binding.trigger_mode is TriggerMode.HOLD:
             payload["@activationMode"] = "delayed_press"
         return Rebind.model_validate(payload)
+
+    @staticmethod
+    def _rebind_signature(rebind: Rebind) -> tuple[str, int | None, str | None]:
+        activation_mode = str((rebind.model_extra or {}).get("@activationMode") or "").strip().lower() or None
+        multitap = rebind.multitap if rebind.multitap not in {None, 0} else None
+        return (rebind.input, multitap, activation_mode)

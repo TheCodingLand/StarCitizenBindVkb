@@ -32,7 +32,7 @@ homepage = "https://github.com/TheCodingLand/StarCitizenBindVkb"
 repository = "https://github.com/TheCodingLand/StarCitizenBindVkb"
 
 [project.scripts]
-citizenbindvkb = "main:main"
+citizenbindvkb = "app.main:main"
 
 [tool.setuptools.packages.find]
 include = ["app*"]

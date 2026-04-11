@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.domain.catalog import GameCatalog, GameCatalogVersion
 
 
 class TriggerMode(str, Enum):
@@ -29,6 +32,20 @@ class BindingEdit:
     trigger_mode: TriggerMode
     modifier_token: str | None = None
     source_record_id: str | None = None
+    source_actionmap_name: str | None = None
+    replaced_passthrough_record_id: str | None = None
+
+
+@dataclass(frozen=True)
+class BindingReference:
+    role: str
+    slot_id: str
+    action_name: str
+    trigger_mode: TriggerMode
+    modifier_token: str | None = None
+    source_record_id: str | None = None
+    source_actionmap_name: str | None = None
+    replaced_passthrough_record_id: str | None = None
 
 
 @dataclass
@@ -89,7 +106,14 @@ class ExportResult:
     document: Any | None = None
 
 
+@dataclass(frozen=True)
+class SessionCatalogSnapshot:
+    version: GameCatalogVersion
+    catalog: GameCatalog
+
+
 @dataclass
 class BindingSession:
     profile: WorkingProfile
     diagnostics: list[Diagnostic] = field(default_factory=list)
+    catalog_snapshot: SessionCatalogSnapshot | None = None

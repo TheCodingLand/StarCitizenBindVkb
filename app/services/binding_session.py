@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 from app.domain import (
     BindingEdit,
     BindingInput,
+    BindingReference,
     BindingSession,
     Diagnostic,
     ExportResult,
     PassthroughConflict,
+    SessionCatalogSnapshot,
     TriggerMode,
 )
 from app.domain.models import ActionIdentifier, Binding, BindingSet, ControlProfile, InputSlot
@@ -29,18 +32,39 @@ class BindingSessionService:
         self._baseline_profile: ControlProfile | None = None
 
     def open_profile(self, path: Path, imported_role_map: dict[str, str]) -> BindingSession:
-        self._session = self.profile_repository.load_profile(path, imported_role_map)
+        catalog = deepcopy(self.profile_repository.catalog_repo.load())
+        self._session = self.profile_repository.load_profile(path, imported_role_map, catalog=catalog)
+        self._session.catalog_snapshot = SessionCatalogSnapshot(version=catalog.version, catalog=catalog)
         self._baseline_profile = self._to_control_profile(self._session)
         return self._session
 
     def bind(self, role: str, slot: str, action: str, trigger_mode: str) -> BindingSession:
         session = self._require_session()
+        parsed_trigger_mode = TriggerMode(trigger_mode)
+        catalog = self._active_catalog(session)
+        existing_binding = self._find_slot_binding(session, role, slot, parsed_trigger_mode)
+        source_actionmap_name = None
+        if (
+            existing_binding is not None
+            and existing_binding.source_actionmap_name in catalog.actionmaps_by_name.get(action, ())
+        ):
+            source_actionmap_name = existing_binding.source_actionmap_name
+        if not self._validate_binding_request(
+            session,
+            role,
+            slot,
+            action,
+            parsed_trigger_mode,
+            source_actionmap_name=source_actionmap_name,
+        ):
+            return session
         return self._upsert_binding(
             session=session,
             role=role,
             slot=slot,
             action=action,
-            trigger_mode=TriggerMode(trigger_mode),
+            trigger_mode=parsed_trigger_mode,
+            source_actionmap_name=source_actionmap_name,
         )
 
     def unbind(self, role: str, slot: str, trigger_mode: str) -> BindingSession:
@@ -57,13 +81,79 @@ class BindingSessionService:
         ]
         return session
 
+    def remove_binding(self, binding_ref: BindingReference) -> BindingSession:
+        session = self._require_session()
+        binding_index = self._find_binding_index(session, binding_ref)
+        if binding_index is None:
+            return session
+
+        session.profile.bindings.pop(binding_index)
+        return session
+
+    def move_binding(self, binding_ref: BindingReference, target_slot: str) -> BindingSession:
+        session = self._require_session()
+        binding_index = self._find_binding_index(session, binding_ref)
+        if binding_index is None:
+            return session
+
+        source_binding = session.profile.bindings[binding_index]
+        if source_binding.slot_id == target_slot:
+            return session
+
+        catalog = self._active_catalog(session)
+        if len(catalog.actionmaps_by_name.get(source_binding.action_name, ())) > 1:
+            session.diagnostics.append(
+                Diagnostic(
+                    code="ambiguous-actionmap",
+                    level="error",
+                    message=(
+                        f"Action '{source_binding.action_name}' exists in multiple actionmaps and "
+                        "cannot be moved without explicit provenance."
+                    ),
+                )
+            )
+            return session
+
+        if not self._validate_binding_request(
+            session,
+            source_binding.role,
+            target_slot,
+            source_binding.action_name,
+            source_binding.trigger_mode,
+            source_actionmap_name=source_binding.source_actionmap_name,
+        ):
+            return session
+
+        original_bindings = deepcopy(session.profile.bindings)
+        try:
+            session.profile.bindings.pop(binding_index)
+            return self._upsert_binding(
+                session=session,
+                role=source_binding.role,
+                slot=target_slot,
+                action=source_binding.action_name,
+                trigger_mode=source_binding.trigger_mode,
+                modifier_token=source_binding.modifier_token,
+                source_record_id=source_binding.source_record_id,
+                source_actionmap_name=source_binding.source_actionmap_name,
+                replaced_passthrough_record_id=source_binding.replaced_passthrough_record_id,
+            )
+        except Exception:
+            session.profile.bindings = original_bindings
+            raise
+
     def replace_passthrough(self, conflict_id: str, replacement_binding: BindingInput) -> BindingSession:
         session = self._require_session()
-        session.profile.passthrough_records = [
-            record
-            for record in session.profile.passthrough_records
-            if record.record_id != conflict_id and conflict_id != f"conflict:{record.record_id}"
-        ]
+        if not self._validate_binding_request(
+            session,
+            replacement_binding.role,
+            replacement_binding.slot_id,
+            replacement_binding.action_name,
+            replacement_binding.trigger_mode,
+        ):
+            return session
+        record_id = conflict_id.removeprefix("conflict:")
+        session = self._drop_conflicting_bindings(session, conflict_id)
         return self._upsert_binding(
             session=session,
             role=replacement_binding.role,
@@ -71,6 +161,7 @@ class BindingSessionService:
             action=replacement_binding.action_name,
             trigger_mode=replacement_binding.trigger_mode,
             modifier_token=replacement_binding.modifier_token,
+            replaced_passthrough_record_id=record_id,
         )
 
     def preserve_passthrough(self, conflict_id: str) -> BindingSession:
@@ -119,8 +210,15 @@ class BindingSessionService:
             self._binding_key(binding, session.profile.role_device_tokens): binding
             for binding in session.profile.bindings
         }
+        actively_replaced_record_ids = {
+            binding.replaced_passthrough_record_id
+            for binding in session.profile.bindings
+            if binding.replaced_passthrough_record_id is not None
+        }
         conflicts: list[PassthroughConflict] = []
         for record in session.profile.passthrough_records:
+            if record.record_id in actively_replaced_record_ids:
+                continue
             key = (record.device_token, record.slot_token, record.trigger_token)
             if key not in binding_keys:
                 continue
@@ -162,14 +260,26 @@ class BindingSessionService:
         action: str,
         trigger_mode: TriggerMode,
         modifier_token: str | None = None,
+        source_record_id: str | None = None,
+        source_actionmap_name: str | None = None,
+        replaced_passthrough_record_id: str | None = None,
     ) -> BindingSession:
         resolved_modifier_token = modifier_token
         if trigger_mode is TriggerMode.MODIFIER and resolved_modifier_token is None:
             resolved_modifier_token = self._default_modifier_token()
 
+        catalog = self._active_catalog(session)
+        entry = catalog.entry_for(action, source_actionmap_name)
+        resolved_actionmap_name = entry.actionmap_name if entry is not None else source_actionmap_name
+
         for binding in session.profile.bindings:
             if binding.role == role and binding.slot_id == slot and binding.trigger_mode is trigger_mode:
                 binding.action_name = action
+                binding.source_actionmap_name = resolved_actionmap_name
+                if source_record_id is not None:
+                    binding.source_record_id = source_record_id
+                if replaced_passthrough_record_id is not None:
+                    binding.replaced_passthrough_record_id = replaced_passthrough_record_id
                 if trigger_mode is TriggerMode.MODIFIER:
                     binding.modifier_token = binding.modifier_token or resolved_modifier_token
                 else:
@@ -183,9 +293,113 @@ class BindingSessionService:
                 action_name=action,
                 trigger_mode=trigger_mode,
                 modifier_token=resolved_modifier_token,
+                source_record_id=source_record_id,
+                source_actionmap_name=resolved_actionmap_name,
+                replaced_passthrough_record_id=replaced_passthrough_record_id,
             )
         )
         return session
+
+    def _validate_binding_request(
+        self,
+        session: BindingSession,
+        role: str,
+        slot: str,
+        action: str,
+        trigger_mode: TriggerMode,
+        source_actionmap_name: str | None = None,
+    ) -> bool:
+        if role not in session.profile.role_device_tokens:
+            session.diagnostics.append(
+                Diagnostic(
+                    code="unresolved-device",
+                    level="error",
+                    message=f"Role '{role}' has no imported device token for export.",
+                )
+            )
+            return False
+
+        catalog = self._active_catalog(session)
+        if action not in catalog.actions_by_name:
+            session.diagnostics.append(
+                Diagnostic(
+                    code="unknown-action",
+                    level="error",
+                    message=f"Action '{action}' is not present in the loaded catalog.",
+                )
+            )
+            return False
+
+        if catalog.entry_for(action, source_actionmap_name) is None:
+            session.diagnostics.append(
+                Diagnostic(
+                    code="ambiguous-actionmap",
+                    level="error",
+                    message=f"Action '{action}' exists in multiple actionmaps and cannot be inferred for a new bind.",
+                )
+            )
+            return False
+
+        side = self._role_to_side(role)
+        layout = self.profile_repository.layout_repo.load_layout(
+            self.profile_repository.layout_repo.SUPPORTED_DEVICE,
+            side,
+        )
+        if layout is None or slot not in layout.slots:
+            session.diagnostics.append(
+                Diagnostic(
+                    code="unknown-slot",
+                    level="error",
+                    message=f"Slot '{slot}' is not available for role '{role}'.",
+                )
+            )
+            return False
+
+        return True
+
+    def _active_catalog(self, session: BindingSession):
+        if session.catalog_snapshot is not None:
+            return session.catalog_snapshot.catalog
+        return self.profile_repository.catalog_repo.load()
+
+    @staticmethod
+    def _find_slot_binding(
+        session: BindingSession,
+        role: str,
+        slot: str,
+        trigger_mode: TriggerMode,
+    ) -> BindingEdit | None:
+        return next(
+            (
+                binding
+                for binding in session.profile.bindings
+                if binding.role == role and binding.slot_id == slot and binding.trigger_mode is trigger_mode
+            ),
+            None,
+        )
+
+    def _find_binding_index(
+        self,
+        session: BindingSession,
+        binding_ref: BindingReference,
+    ) -> int | None:
+        for index, binding in enumerate(session.profile.bindings):
+            if self._binding_matches_reference(binding, binding_ref):
+                return index
+        return None
+
+    @staticmethod
+    def _binding_matches_reference(binding: BindingEdit, binding_ref: BindingReference) -> bool:
+        return (
+            binding.role == binding_ref.role
+            and binding.slot_id == binding_ref.slot_id
+            and binding.action_name == binding_ref.action_name
+            and binding.trigger_mode is binding_ref.trigger_mode
+            and binding.modifier_token == binding_ref.modifier_token
+            and binding.source_record_id == binding_ref.source_record_id
+            and binding.source_actionmap_name == binding_ref.source_actionmap_name
+            and binding.replaced_passthrough_record_id == binding_ref.replaced_passthrough_record_id
+        )
 
     def _to_control_profile(self, session: BindingSession) -> ControlProfile:
         left_bindings = BindingSet(side="left")

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Iterable, Optional, Sequence, Tuple
+
+from app.domain.session import TriggerMode
 
 
 @dataclass(frozen=True)
@@ -20,6 +24,12 @@ class ActionDefinition:
     """Domain representation of a bindable action."""
 
     identifier: ActionIdentifier
+    action_name: str = ""
+    actionmap_name: str = ""
+    category: str = ""
+    subcategory: str = ""
+    display_label: str = ""
+    supported_trigger_modes: Tuple[TriggerMode, ...] = ()
     activation_modes: Tuple[str, ...] = ()
     supports_joystick: bool = True
     default_inputs: Tuple[str, ...] = ()

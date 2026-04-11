@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from app.domain import BindingEdit, TriggerMode
 from app.io import ActionCatalogRepository, DeviceLayoutRepository, StarCitizenProfileRepository
 from app.io.repositories import ActionMapsRepository as CompatActionMapsRepository
 from app.io.repositories import DeviceLayoutRepository as CompatLayoutRepository
@@ -103,3 +104,144 @@ def test_default_profile_fixture_round_trips_through_headless_repository() -> No
 
     assert exported.document is not None
     assert exported.document.profileName == "Default"
+
+
+def test_export_can_create_new_actionmap_for_valid_new_binding() -> None:
+    repo = make_repository()
+
+    session = repo.load_profile(
+        UNKNOWNS_FIXTURE,
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    session.profile.bindings.append(
+        BindingEdit(
+            role="left_stick",
+            slot_id="button4",
+            action_name="v_toggle_qdrive_engagement",
+            trigger_mode=TriggerMode.PLAIN,
+        )
+    )
+    exported = repo.export_profile(session)
+
+    quantum_map = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "spaceship_quantum"
+    )
+    qdrive_action = next(
+        action for action in quantum_map.action if action.name == "v_toggle_qdrive_engagement"
+    )
+
+    assert any(rebind.input == "js1_button4" for rebind in qdrive_action.rebind)
+
+
+def test_hold_binding_round_trips_activation_mode() -> None:
+    repo = make_repository()
+
+    session = repo.load_profile(
+        UNKNOWNS_FIXTURE,
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    hold_binding = next(binding for binding in session.profile.bindings if binding.trigger_mode is TriggerMode.HOLD)
+    exported = repo.export_profile(session)
+
+    movement_map = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "spaceship_movement"
+    )
+    speed_limiter = next(
+        action for action in movement_map.action if action.name == hold_binding.action_name
+    )
+
+    assert any(
+        rebind.input == "js1_button5"
+        and (rebind.model_extra or {}).get("@activationMode") == "delayed_press"
+        for rebind in speed_limiter.rebind
+    )
+
+
+def test_multitap_binding_round_trips_multitap_flag() -> None:
+    repo = make_repository()
+
+    session = repo.load_profile(
+        Path("tests/fixtures/profiles/layout_VKB_final_3_22_exported.xml"),
+        imported_role_map={"js1": "right_stick", "js2": "left_stick"},
+    )
+    multitap_binding = next(
+        binding for binding in session.profile.bindings if binding.trigger_mode is TriggerMode.MULTITAP
+    )
+    exported = repo.export_profile(session)
+
+    seat_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "seat_general"
+    )
+    action = next(item for item in seat_general.action if item.name == multitap_binding.action_name)
+
+    assert any(
+        rebind.input.endswith(multitap_binding.slot_id) and rebind.multitap == 2
+        for rebind in action.rebind
+    )
+
+
+def test_duplicate_actionmap_round_trip_preserves_original_actionmaps() -> None:
+    repo = make_repository()
+
+    session = repo.load_profile(
+        Path("tests/fixtures/profiles/profile_duplicate_actionmaps.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    exported = repo.export_profile(session)
+
+    spaceship_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "spaceship_general"
+    )
+    vehicle_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "vehicle_general"
+    )
+
+    assert any(
+        rebind.input == "js1_button1"
+        for action in spaceship_general.action
+        if action.name == "v_flightready"
+        for rebind in action.rebind
+    )
+    assert any(
+        rebind.input == "js2_button2"
+        for action in vehicle_general.action
+        if action.name == "v_flightready"
+        for rebind in action.rebind
+    )
+
+
+def test_export_keeps_distinct_trigger_modes_for_same_input() -> None:
+    repo = make_repository()
+
+    session = repo.load_profile(
+        UNKNOWNS_FIXTURE,
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    session.profile.bindings.append(
+        BindingEdit(
+            role="left_stick",
+            slot_id="button6",
+            action_name="v_emergency_exit",
+            trigger_mode=TriggerMode.PLAIN,
+        )
+    )
+    session.profile.bindings.append(
+        BindingEdit(
+            role="left_stick",
+            slot_id="button6",
+            action_name="v_emergency_exit",
+            trigger_mode=TriggerMode.HOLD,
+        )
+    )
+
+    exported = repo.export_profile(session)
+
+    seat_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "seat_general"
+    )
+    emergency_exit = next(action for action in seat_general.action if action.name == "v_emergency_exit")
+    button6_rebinds = [rebind for rebind in emergency_exit.rebind if rebind.input == "js1_button6"]
+
+    assert len(button6_rebinds) == 2
+    assert any((rebind.model_extra or {}).get("@activationMode") == "delayed_press" for rebind in button6_rebinds)
+    assert any((rebind.model_extra or {}).get("@activationMode") is None for rebind in button6_rebinds)

@@ -29,4 +29,9 @@
       <rebind input="kb1_ralt+r" />
     </action>
   </actionmap>
+  <actionmap name="spaceship_movement">
+    <action name="v_ifcs_toggle_speed_limiter" title="Toggle Speed Limiter">
+      <rebind input="js1_button5" activationMode="delayed_press" />
+    </action>
+  </actionmap>
 </ActionMaps>

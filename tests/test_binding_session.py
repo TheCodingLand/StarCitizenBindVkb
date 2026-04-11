@@ -1,6 +1,19 @@
 from pathlib import Path
 
-from app.domain import BindingInput, BindingSession, ExportResult, PassthroughRecord, TriggerMode, WorkingProfile
+import pytest
+
+from app.domain import (
+    BindingInput,
+    BindingReference,
+    BindingSession,
+    ExportResult,
+    GameCatalog,
+    GameCatalogVersion,
+    PassthroughRecord,
+    SessionCatalogSnapshot,
+    TriggerMode,
+    WorkingProfile,
+)
 from app.io import ActionCatalogRepository, DeviceLayoutRepository, StarCitizenProfileRepository
 from app.services import BindingSessionService
 
@@ -9,6 +22,34 @@ def make_repository() -> StarCitizenProfileRepository:
     return StarCitizenProfileRepository(
         catalog_repo=ActionCatalogRepository(Path("tests/fixtures/catalogs/live-sc-alpha-3.24.2.json")),
         layout_repo=DeviceLayoutRepository(),
+    )
+
+
+def make_binding_reference(binding) -> BindingReference:
+    return BindingReference(
+        role=binding.role,
+        slot_id=binding.slot_id,
+        action_name=binding.action_name,
+        trigger_mode=binding.trigger_mode,
+        modifier_token=binding.modifier_token,
+        source_record_id=binding.source_record_id,
+        source_actionmap_name=binding.source_actionmap_name,
+        replaced_passthrough_record_id=binding.replaced_passthrough_record_id,
+    )
+
+
+def binding_snapshot(session: BindingSession) -> list[tuple[str, str, str, TriggerMode, str | None, str | None, str | None]]:
+    return sorted(
+        (
+            binding.role,
+            binding.slot_id,
+            binding.action_name,
+            binding.trigger_mode,
+            binding.modifier_token,
+            binding.source_actionmap_name,
+            binding.replaced_passthrough_record_id,
+        )
+        for binding in session.profile.bindings
     )
 
 
@@ -48,6 +89,235 @@ def test_binding_session_exposes_profile_and_diagnostics() -> None:
     assert session.diagnostics == []
 
 
+def test_open_profile_captures_catalog_snapshot_used_for_session() -> None:
+    repository = make_repository()
+    original_catalog = repository.catalog_repo.load()
+    mutated_catalog = GameCatalog(version=GameCatalogVersion(key="mutated-catalog"))
+    load_count = 0
+
+    def load_catalog() -> GameCatalog:
+        nonlocal load_count
+        load_count += 1
+        if load_count == 1:
+            return original_catalog
+        return mutated_catalog
+
+    repository.catalog_repo.load = load_catalog  # type: ignore[method-assign]
+    service = BindingSessionService(repository)
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+
+    assert isinstance(session.catalog_snapshot, SessionCatalogSnapshot)
+    assert session.catalog_snapshot.version.key == "live-sc-alpha-3.24.2"
+    assert session.catalog_snapshot.catalog.version_key == session.catalog_snapshot.version.key
+    assert session.catalog_snapshot.catalog.entry_for("v_emergency_exit", "seat_general") is not None
+
+
+def test_bind_validation_uses_catalog_captured_at_session_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    baseline_unknown_action_count = sum(d.code == "unknown-action" for d in session.diagnostics)
+    monkeypatch.setattr(
+        service.profile_repository.catalog_repo,
+        "load",
+        lambda: GameCatalog(version=GameCatalogVersion(key="mutated-catalog")),
+    )
+
+    updated = service.bind("left_stick", "button3", "v_emergency_exit", "plain")
+
+    assert any(
+        binding.role == "left_stick"
+        and binding.slot_id == "button3"
+        and binding.action_name == "v_emergency_exit"
+        for binding in updated.profile.bindings
+    )
+    assert sum(d.code == "unknown-action" for d in updated.diagnostics) == baseline_unknown_action_count
+
+
+def test_export_uses_catalog_captured_at_session_open() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("left_stick", "button3", "v_emergency_exit", "plain")
+    service.profile_repository._catalog = GameCatalog(version=GameCatalogVersion(key="mutated-catalog"))
+
+    exported = service.export()
+
+    assert exported.document is not None
+    seat_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "seat_general"
+    )
+    emergency_exit = next(action for action in seat_general.action if action.name == "v_emergency_exit")
+    assert any(rebind.input == "js1_button3" for rebind in emergency_exit.rebind)
+
+
+def test_remove_binding_reference_removes_only_the_target_binding() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    target_binding = next(binding for binding in session.profile.bindings if binding.action_name == "v_emergency_exit")
+
+    updated = service.remove_binding(make_binding_reference(target_binding))
+
+    assert all(
+        binding.source_record_id != target_binding.source_record_id
+        for binding in updated.profile.bindings
+    )
+    assert any(binding.action_name == "v_ifcs_toggle_speed_limiter" for binding in updated.profile.bindings)
+
+
+def test_move_binding_reference_restores_original_on_rejected_target() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    target_binding = next(binding for binding in session.profile.bindings if binding.action_name == "v_emergency_exit")
+    before = binding_snapshot(session)
+    baseline_unknown_slot_count = sum(d.code == "unknown-slot" for d in session.diagnostics)
+
+    updated = service.move_binding(make_binding_reference(target_binding), "not_a_real_slot")
+
+    assert binding_snapshot(updated) == before
+    assert sum(d.code == "unknown-slot" for d in updated.diagnostics) == baseline_unknown_slot_count + 1
+
+
+def test_move_binding_reference_restores_original_on_unexpected_bind_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    target_binding = next(binding for binding in session.profile.bindings if binding.action_name == "v_emergency_exit")
+    before = binding_snapshot(session)
+
+    def explode(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(service, "_upsert_binding", explode)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        service.move_binding(make_binding_reference(target_binding), "button3")
+
+    assert binding_snapshot(service._require_session()) == before
+
+
+def test_move_binding_reference_preserves_provenance_and_modifier_state() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/layout_VKB_final_3_22_exported.xml"),
+        imported_role_map={"js1": "right_stick", "js2": "left_stick"},
+    )
+    modifier_binding = next(
+        binding for binding in session.profile.bindings if binding.trigger_mode is TriggerMode.MODIFIER
+    )
+
+    updated = service.move_binding(make_binding_reference(modifier_binding), "button4")
+    moved_binding = next(
+        binding
+        for binding in updated.profile.bindings
+        if binding.action_name == modifier_binding.action_name and binding.slot_id == "button4"
+    )
+
+    assert moved_binding.trigger_mode is TriggerMode.MODIFIER
+    assert moved_binding.modifier_token == modifier_binding.modifier_token
+    assert moved_binding.source_actionmap_name == modifier_binding.source_actionmap_name
+
+
+def test_move_binding_reference_rejects_ambiguous_duplicate_name_import() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_duplicate_actionmaps.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    target_binding = next(
+        binding
+        for binding in session.profile.bindings
+        if binding.action_name == "v_flightready" and binding.source_actionmap_name == "spaceship_general"
+    )
+    before = binding_snapshot(session)
+    baseline_ambiguous_count = sum(d.code == "ambiguous-actionmap" for d in session.diagnostics)
+
+    updated = service.move_binding(make_binding_reference(target_binding), "button3")
+
+    assert binding_snapshot(updated) == before
+    assert sum(d.code == "ambiguous-actionmap" for d in updated.diagnostics) == baseline_ambiguous_count + 1
+
+
+def test_remove_binding_reference_accepts_ambiguous_duplicate_name_import_by_identity() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_duplicate_actionmaps.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    target_binding = next(
+        binding
+        for binding in session.profile.bindings
+        if binding.action_name == "v_flightready" and binding.source_actionmap_name == "spaceship_general"
+    )
+
+    updated = service.remove_binding(make_binding_reference(target_binding))
+
+    assert len(updated.profile.bindings) == 1
+    assert updated.profile.bindings[0].source_actionmap_name == "vehicle_general"
+    assert updated.profile.bindings[0].slot_id == "button2"
+
+
+def test_move_binding_reference_preserves_passthrough_replacement_identity() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
+    blocked = service.export()
+    service.replace_passthrough(
+        blocked.blocked_conflicts[0].conflict_id,
+        BindingInput(
+            role="right_stick",
+            slot_id="button3",
+            action_name="v_emergency_exit",
+            trigger_mode=TriggerMode.PLAIN,
+        ),
+    )
+
+    replacement_binding = next(
+        binding
+        for binding in service._require_session().profile.bindings
+        if binding.slot_id == "button3" and binding.replaced_passthrough_record_id is not None
+    )
+    updated = service.move_binding(make_binding_reference(replacement_binding), "button4")
+    moved_binding = next(
+        binding
+        for binding in updated.profile.bindings
+        if binding.slot_id == "button4" and binding.action_name == replacement_binding.action_name
+    )
+
+    assert moved_binding.replaced_passthrough_record_id == replacement_binding.replaced_passthrough_record_id
+    assert moved_binding.source_actionmap_name == replacement_binding.source_actionmap_name
+
+
 def test_bind_and_export_updates_known_binding_without_dropping_passthrough() -> None:
     service = BindingSessionService(make_repository())
 
@@ -77,12 +347,12 @@ def test_export_blocks_when_edit_conflicts_with_passthrough() -> None:
         Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
         imported_role_map={"js1": "left_stick", "js2": "right_stick"},
     )
-    service.bind("right_stick", "unknown_button", "v_emergency_exit", "plain")
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
 
     exported = service.export()
 
     assert exported.blocked_conflicts
-    assert exported.blocked_conflicts[0].slot_token == "unknown_button"
+    assert exported.blocked_conflicts[0].slot_token == "button2"
 
 
 def test_preserve_passthrough_discards_conflicting_edit() -> None:
@@ -92,7 +362,7 @@ def test_preserve_passthrough_discards_conflicting_edit() -> None:
         Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
         imported_role_map={"js1": "left_stick", "js2": "right_stick"},
     )
-    service.bind("right_stick", "unknown_button", "v_emergency_exit", "plain")
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
 
     blocked = service.export()
 
@@ -109,7 +379,7 @@ def test_discard_pending_edit_removes_conflicting_binding() -> None:
         Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
         imported_role_map={"js1": "left_stick", "js2": "right_stick"},
     )
-    service.bind("right_stick", "unknown_button", "v_emergency_exit", "plain")
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
 
     blocked = service.export()
 
@@ -144,7 +414,7 @@ def test_replace_passthrough_adds_replacement_binding() -> None:
         Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
         imported_role_map={"js1": "left_stick", "js2": "right_stick"},
     )
-    service.bind("right_stick", "unknown_button", "v_emergency_exit", "plain")
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
     blocked = service.export()
 
     service.replace_passthrough(
@@ -163,7 +433,13 @@ def test_replace_passthrough_adds_replacement_binding() -> None:
         action_map for action_map in exported.document.actionmap if action_map.name == "seat_general"
     )
     emergency_exit = next(action for action in seat_general.action if action.name == "v_emergency_exit")
+    unknown_custom_action = next(
+        action for action in seat_general.action if action.name == "v_unknown_custom_action"
+    )
+
     assert any(rebind.input == "js2_button3" for rebind in emergency_exit.rebind)
+    assert all(rebind.input != "js2_button2" for rebind in emergency_exit.rebind)
+    assert all(rebind.input != "js2_button2" for rebind in unknown_custom_action.rebind)
 
 
 def test_modifier_binding_round_trips_without_losing_modifier_token() -> None:
@@ -193,3 +469,168 @@ def test_modifier_binding_round_trips_without_losing_modifier_token() -> None:
         rebind.input == f"js1_{modifier_binding.modifier_token}+{modifier_binding.slot_id}"
         for rebind in action.rebind
     )
+
+
+def test_bind_rejects_unknown_action_before_export() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    updated = service.bind("left_stick", "button3", "not_in_catalog", "plain")
+    exported = service.export()
+
+    assert not any(binding.action_name == "not_in_catalog" for binding in updated.profile.bindings)
+    assert any(d.code == "unknown-action" for d in updated.diagnostics)
+    assert all(
+        action.name != "not_in_catalog"
+        for action_map in exported.document.actionmap
+        for action in action_map.action
+    )
+
+
+def test_bind_rejects_role_without_imported_device_token() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick"},
+    )
+    updated = service.bind("right_stick", "button3", "v_emergency_exit", "plain")
+    exported = service.export()
+
+    assert not any(
+        binding.role == "right_stick" and binding.slot_id == "button3"
+        for binding in updated.profile.bindings
+    )
+    assert any(d.code == "unresolved-device" for d in updated.diagnostics)
+    assert all(
+        rebind.input != "right_stick_button3"
+        for action_map in exported.document.actionmap
+        for action in action_map.action
+        for rebind in action.rebind
+    )
+
+
+def test_bind_rejects_invalid_slot_before_export() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    updated = service.bind("left_stick", "not_a_real_slot", "v_emergency_exit", "plain")
+    exported = service.export()
+
+    assert not any(binding.slot_id == "not_a_real_slot" for binding in updated.profile.bindings)
+    assert any(d.code == "unknown-slot" for d in updated.diagnostics)
+    assert all(
+        rebind.input != "js1_not_a_real_slot"
+        for action_map in exported.document.actionmap
+        for action in action_map.action
+        for rebind in action.rebind
+    )
+
+
+def test_rebinding_existing_control_moves_binding_to_new_actionmap() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("left_stick", "button18", "v_ifcs_toggle_speed_limiter", "plain")
+    exported = service.export()
+
+    seat_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "seat_general"
+    )
+    movement_map = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "spaceship_movement"
+    )
+    emergency_exit = next(action for action in seat_general.action if action.name == "v_emergency_exit")
+    speed_limiter = next(
+        action for action in movement_map.action if action.name == "v_ifcs_toggle_speed_limiter"
+    )
+
+    assert all(rebind.input != "js1_button18" for rebind in emergency_exit.rebind)
+    assert any(rebind.input == "js1_button18" for rebind in speed_limiter.rebind)
+
+
+def test_replace_passthrough_rejects_invalid_replacement_without_dropping_conflict() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
+    blocked = service.export()
+
+    service.replace_passthrough(
+        blocked.blocked_conflicts[0].conflict_id,
+        BindingInput(
+            role="right_stick",
+            slot_id="button3",
+            action_name="not_in_catalog",
+            trigger_mode=TriggerMode.PLAIN,
+        ),
+    )
+    exported = service.export()
+
+    assert exported.blocked_conflicts
+    assert any(d.code == "unknown-action" for d in service._require_session().diagnostics)
+
+
+def test_bind_rejects_ambiguous_duplicate_actionmap_action() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_duplicate_actionmaps.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    updated = service.bind("left_stick", "button3", "v_flightready", "plain")
+    exported = service.export()
+
+    assert any(d.code == "ambiguous-actionmap" for d in updated.diagnostics)
+    assert all(
+        rebind.input != "js1_button3"
+        for action_map in exported.document.actionmap
+        for action in action_map.action
+        for rebind in action.rebind
+    )
+
+
+def test_unbinding_replacement_restores_original_passthrough_record() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
+    blocked = service.export()
+
+    service.replace_passthrough(
+        blocked.blocked_conflicts[0].conflict_id,
+        BindingInput(
+            role="right_stick",
+            slot_id="button3",
+            action_name="v_emergency_exit",
+            trigger_mode=TriggerMode.PLAIN,
+        ),
+    )
+    service.unbind("right_stick", "button3", "plain")
+    exported = service.export()
+
+    seat_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "seat_general"
+    )
+    emergency_exit = next(action for action in seat_general.action if action.name == "v_emergency_exit")
+    unknown_custom_action = next(
+        action for action in seat_general.action if action.name == "v_unknown_custom_action"
+    )
+
+    assert all(rebind.input != "js2_button3" for rebind in emergency_exit.rebind)
+    assert any(rebind.input == "js2_button2" for rebind in unknown_custom_action.rebind)

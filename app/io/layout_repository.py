@@ -25,9 +25,12 @@ def build_layout(
 
 class DeviceLayoutRepository:
     SUPPORTED_DEVICE = "VKB Default"
+    SUPPORTED_SIDES = {"left", "right"}
 
     def load_layout(self, device_name: str, side: str) -> DeviceLayoutDescriptor | None:
         if device_name != self.SUPPORTED_DEVICE:
+            return None
+        if side not in self.SUPPORTED_SIDES:
             return None
         try:
             buttons = get_joystick_buttons(self.SUPPORTED_DEVICE)

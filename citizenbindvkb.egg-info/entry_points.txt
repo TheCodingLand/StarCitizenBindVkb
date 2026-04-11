@@ -1,2 +1,2 @@
 [console_scripts]
-citizenbindvkb = main:main
+citizenbindvkb = app.main:main
