@@ -263,6 +263,28 @@ def test_move_binding_reference_rejects_ambiguous_duplicate_name_import() -> Non
     assert sum(d.code == "ambiguous-actionmap" for d in updated.diagnostics) == baseline_ambiguous_count + 1
 
 
+def test_move_binding_reference_rejects_target_slot_occupied_by_ambiguous_import() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_duplicate_actionmaps.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("left_stick", "button3", "v_toggle_qdrive_engagement", "plain")
+    source_binding = next(
+        binding
+        for binding in session.profile.bindings
+        if binding.slot_id == "button3" and binding.action_name == "v_toggle_qdrive_engagement"
+    )
+    before = binding_snapshot(session)
+    baseline_ambiguous_count = sum(d.code == "ambiguous-actionmap" for d in session.diagnostics)
+
+    updated = service.move_binding(make_binding_reference(source_binding), "button1")
+
+    assert binding_snapshot(updated) == before
+    assert sum(d.code == "ambiguous-actionmap" for d in updated.diagnostics) == baseline_ambiguous_count + 1
+
+
 def test_remove_binding_reference_accepts_ambiguous_duplicate_name_import_by_identity() -> None:
     service = BindingSessionService(make_repository())
 
@@ -316,6 +338,42 @@ def test_move_binding_reference_preserves_passthrough_replacement_identity() -> 
 
     assert moved_binding.replaced_passthrough_record_id == replacement_binding.replaced_passthrough_record_id
     assert moved_binding.source_actionmap_name == replacement_binding.source_actionmap_name
+
+
+def test_move_binding_reference_overwrites_occupied_target_metadata() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
+    blocked = service.export()
+    service.replace_passthrough(
+        blocked.blocked_conflicts[0].conflict_id,
+        BindingInput(
+            role="right_stick",
+            slot_id="button3",
+            action_name="v_emergency_exit",
+            trigger_mode=TriggerMode.PLAIN,
+        ),
+    )
+    service.bind("right_stick", "button4", "v_toggle_qdrive_engagement", "plain")
+    source_binding = next(
+        binding
+        for binding in service._require_session().profile.bindings
+        if binding.slot_id == "button4" and binding.action_name == "v_toggle_qdrive_engagement"
+    )
+
+    updated = service.move_binding(make_binding_reference(source_binding), "button3")
+    moved_binding = next(
+        binding
+        for binding in updated.profile.bindings
+        if binding.slot_id == "button3" and binding.action_name == "v_toggle_qdrive_engagement"
+    )
+
+    assert moved_binding.source_actionmap_name == "spaceship_quantum"
+    assert moved_binding.replaced_passthrough_record_id is None
 
 
 def test_bind_and_export_updates_known_binding_without_dropping_passthrough() -> None:

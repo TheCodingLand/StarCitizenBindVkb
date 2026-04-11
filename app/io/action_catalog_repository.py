@@ -3,17 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.domain import GameCatalog
-from app.models.full_game_control_options import get_all_defined_game_actions
+from app.models.full_game_control_options import (
+    get_all_defined_game_actions,
+    get_all_subcategories_actions,
+)
 
 
 class ActionCatalogRepository:
     def __init__(self, source_path: Path, version_key: str | None = None) -> None:
         self.source_path = source_path
         self.version_key = version_key
-from app.models.full_game_control_options import (
-    get_all_defined_game_actions,
-    get_all_subcategories_actions,
-)
 
     def load(self) -> GameCatalog:
         if not self.source_path.exists():

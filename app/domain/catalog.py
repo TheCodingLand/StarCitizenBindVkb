@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Mapping
 
 from app.domain.models import ActionDefinition, ActionIdentifier
 from app.domain.session import TriggerMode
@@ -42,10 +43,14 @@ class GameCatalog:
         cls,
         version_key: str,
         actions: dict[str, list[GameAction]],
+        actionmap_metadata: Mapping[str, tuple[str | None, str | None]] | None = None,
     ) -> "GameCatalog":
         catalog = cls(version=GameCatalogVersion(key=version_key))
         for action_name, variants in actions.items():
-            entries = [build_action_definition(item) for item in variants]
+            entries = [
+                build_action_definition(item, actionmap_metadata=actionmap_metadata)
+                for item in variants
+            ]
             catalog.actions_by_name[action_name] = entries
             for entry in entries:
                 catalog.entries_by_key[(entry.action_name, entry.actionmap_name)] = entry
@@ -53,29 +58,20 @@ class GameCatalog:
                 dict.fromkeys(
                     entry.actionmap_name
                     for entry in entries
-                actionmap_metadata: Mapping[str, tuple[str | None, str | None]] | None = None,
                     if entry.actionmap_name
                 )
             )
             catalog.actionmaps_by_name[action_name] = actionmaps
-                    catalog.actions_by_name[action_name] = entries
-                    for entry in entries:
-                        catalog.entries_by_key[(entry.action_name, entry.actionmap_name)] = entry
-                    actionmaps = tuple(
-                        dict.fromkeys(
-                            entry.actionmap_name
-                            for entry in entries
-                            if entry.actionmap_name
-                        )
-                    )
-                    catalog.actionmaps_by_name[action_name] = actionmaps
-                    if actionmaps:
-                        catalog.actionmap_by_name[action_name] = actionmaps[0]
+            if actionmaps:
                 catalog.actionmap_by_name[action_name] = actionmaps[0]
         return catalog
 
 
-def build_action_definition(item: GameAction) -> ActionDefinition:
+def build_action_definition(
+    item: GameAction,
+    *,
+    actionmap_metadata: Mapping[str, tuple[str | None, str | None]] | None = None,
+) -> ActionDefinition:
     activation_modes: list[str] = []
     for value in (
         item.activation_mode,
@@ -89,19 +85,19 @@ def build_action_definition(item: GameAction) -> ActionDefinition:
             activation_modes.append(normalized)
 
     supports_joystick = _supports_joystick(item)
+    actionmap_name = item.sub_category or item.main_category or ""
+    actionmap_category, actionmap_label = (actionmap_metadata or {}).get(actionmap_name, (None, None))
 
     return ActionDefinition(
         identifier=ActionIdentifier(
             name=item.name,
             main_category=item.main_category or "",
-                actionmap_name=item.sub_category or item.main_category or "",
-                category=actionmap_category or item.ui_category or item.category or item.main_category or actionmap_name,
-                subcategory=actionmap_label or actionmap_name,
+            sub_category=item.sub_category or "",
         ),
         action_name=item.name,
-        actionmap_name=item.sub_category or item.main_category or "",
-        category=item.category or item.main_category or "",
-        subcategory=item.sub_category or item.main_category or "",
+        actionmap_name=actionmap_name,
+        category=actionmap_category or item.ui_category or item.category or item.main_category or actionmap_name,
+        subcategory=actionmap_label or actionmap_name,
         display_label=item.ui_label or item.name,
         supported_trigger_modes=_supported_trigger_modes(supports_joystick),
         activation_modes=tuple(activation_modes),

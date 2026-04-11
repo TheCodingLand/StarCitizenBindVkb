@@ -101,6 +101,12 @@ class BindingSessionService:
             return session
 
         catalog = self._active_catalog(session)
+        target_binding = self._find_slot_binding(
+            session,
+            source_binding.role,
+            target_slot,
+            source_binding.trigger_mode,
+        )
         if len(catalog.actionmaps_by_name.get(source_binding.action_name, ())) > 1:
             session.diagnostics.append(
                 Diagnostic(
@@ -109,6 +115,19 @@ class BindingSessionService:
                     message=(
                         f"Action '{source_binding.action_name}' exists in multiple actionmaps and "
                         "cannot be moved without explicit provenance."
+                    ),
+                )
+            )
+            return session
+
+        if target_binding is not None and len(catalog.actionmaps_by_name.get(target_binding.action_name, ())) > 1:
+            session.diagnostics.append(
+                Diagnostic(
+                    code="ambiguous-actionmap",
+                    level="error",
+                    message=(
+                        f"Action '{target_binding.action_name}' exists in multiple actionmaps and "
+                        "cannot be displaced through a move."
                     ),
                 )
             )
@@ -276,12 +295,10 @@ class BindingSessionService:
             if binding.role == role and binding.slot_id == slot and binding.trigger_mode is trigger_mode:
                 binding.action_name = action
                 binding.source_actionmap_name = resolved_actionmap_name
-                if source_record_id is not None:
-                    binding.source_record_id = source_record_id
-                if replaced_passthrough_record_id is not None:
-                    binding.replaced_passthrough_record_id = replaced_passthrough_record_id
+                binding.source_record_id = source_record_id
+                binding.replaced_passthrough_record_id = replaced_passthrough_record_id
                 if trigger_mode is TriggerMode.MODIFIER:
-                    binding.modifier_token = binding.modifier_token or resolved_modifier_token
+                    binding.modifier_token = resolved_modifier_token
                 else:
                     binding.modifier_token = None
                 return session

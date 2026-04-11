@@ -9,6 +9,7 @@ from app.domain import (
     BindingSession,
     Diagnostic,
     ExportResult,
+    GameCatalog,
     PassthroughRecord,
     TriggerMode,
     UnresolvedBinding,
@@ -35,29 +36,33 @@ class StarCitizenProfileRepository:
         self.layout_repo = layout_repo
         self._catalog = None
 
-    def load_profile(self, path: Path, imported_role_map: dict[str, str]) -> BindingSession:
+    def load_profile(
+        self,
+        path: Path,
+        imported_role_map: dict[str, str],
+        catalog: GameCatalog | None = None,
+    ) -> BindingSession:
         document = get_action_maps_object(str(path))
         profile = WorkingProfile(
             profile_name=document.profileName,
             role_device_tokens={role: device for device, role in imported_role_map.items()},
-                GameCatalog,
             source_path=path,
             source_document=document,
         )
         diagnostics: list[Diagnostic] = []
-        catalog = self._load_catalog()
+        active_catalog = catalog or self._load_catalog()
 
         for action_map in document.actionmap:
             for action in action_map.action:
                 for rebind_index, rebind in enumerate(action.rebind or []):
                     record_id = self._record_id(action_map.name, action.name, rebind_index)
-                    active_catalog = catalog or self._load_catalog()
+                    classification = self._classify_rebind(
                         action_map_name=action_map.name,
                         action=action,
                         rebind=rebind,
                         record_id=record_id,
                         imported_role_map=imported_role_map,
-                        catalog=catalog,
+                        catalog=active_catalog,
                     )
                     if isinstance(classification, BindingEdit):
                         profile.bindings.append(classification)
@@ -73,13 +78,13 @@ class StarCitizenProfileRepository:
 
     def export_profile(self, session: BindingSession) -> ExportResult:
         profile = session.profile
+        catalog = session.catalog_snapshot.catalog if session.catalog_snapshot is not None else self._load_catalog()
         actively_replaced_passthrough_ids = {
             binding.replaced_passthrough_record_id
             for binding in profile.bindings
             if binding.replaced_passthrough_record_id is not None
         }
         preserved_passthrough_count = sum(
-                    catalog = session.catalog_snapshot.catalog if session.catalog_snapshot is not None else self._load_catalog()
             1 for record in profile.passthrough_records if record.record_id not in actively_replaced_passthrough_ids
         )
         if profile.source_document is None:
@@ -91,9 +96,9 @@ class StarCitizenProfileRepository:
         document = profile.source_document.model_copy(deep=True)
         self._remove_source_rebinds(
             document,
-                    self._apply_bindings(document, profile.bindings, profile.role_device_tokens, catalog)
+            profile.editable_source_record_ids | actively_replaced_passthrough_ids,
         )
-        self._apply_bindings(document, profile.bindings, profile.role_device_tokens)
+        self._apply_bindings(document, profile.bindings, profile.role_device_tokens, catalog)
 
         return ExportResult(
             changed_bindings=list(profile.bindings),
@@ -145,6 +150,36 @@ class StarCitizenProfileRepository:
                 code="unknown-action",
                 level="warning",
                 message=f"Unknown action '{action.name}' preserved as passthrough.",
+                record_id=record_id,
+            )
+            unresolved = UnresolvedBinding(
+                record_id=record_id,
+                action_name=action.name,
+                device_token=device_token,
+                slot_token=slot_token,
+                reason=diagnostic.code,
+            )
+            return (
+                PassthroughRecord(
+                    record_id=record_id,
+                    action_name=action.name,
+                    device_token=device_token,
+                    slot_token=slot_token,
+                    trigger_token=trigger_token,
+                    raw_payload=raw_payload,
+                ),
+                diagnostic,
+                unresolved,
+            )
+
+        if catalog.entry_for(action.name, action_map_name) is None:
+            diagnostic = Diagnostic(
+                code="unknown-actionmap",
+                level="warning",
+                message=(
+                    f"Action '{action.name}' is not present in actionmap '{action_map_name}' and "
+                    "was preserved as passthrough."
+                ),
                 record_id=record_id,
             )
             unresolved = UnresolvedBinding(
@@ -295,20 +330,24 @@ class StarCitizenProfileRepository:
         document: ExportedActionMapsFile,
         bindings: list[BindingEdit],
         role_device_tokens: dict[str, str],
+        catalog: GameCatalog,
     ) -> None:
-        catalog = self._load_catalog()
         actionmaps_by_name = {action_map.name: action_map for action_map in document.actionmap}
 
         grouped_bindings: dict[str, list[BindingEdit]] = defaultdict(list)
         for binding in bindings:
-            if (
-                binding.source_actionmap_name is None
-                and len(catalog.actionmaps_by_name.get(binding.action_name, ())) > 1
-            ):
-                raise ValueError(
-                    f"Action '{binding.action_name}' exists in multiple actionmaps and requires source actionmap context."
-                )
-            actionmap_name = binding.source_actionmap_name or catalog.actionmap_by_name.get(binding.action_name)
+            if binding.source_actionmap_name is not None:
+                if catalog.entry_for(binding.action_name, binding.source_actionmap_name) is None:
+                    raise ValueError(
+                        f"Action '{binding.action_name}' is not present in actionmap '{binding.source_actionmap_name}'."
+                    )
+                actionmap_name = binding.source_actionmap_name
+            else:
+                if len(catalog.actionmaps_by_name.get(binding.action_name, ())) > 1:
+                    raise ValueError(
+                        f"Action '{binding.action_name}' exists in multiple actionmaps and requires source actionmap context."
+                    )
+                actionmap_name = catalog.actionmap_by_name.get(binding.action_name)
             if actionmap_name is None:
                 raise ValueError(f"Unknown catalog action '{binding.action_name}'.")
             grouped_bindings[actionmap_name].append(binding)

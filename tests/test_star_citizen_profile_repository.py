@@ -44,6 +44,33 @@ def test_load_profile_marks_unresolved_device_when_role_map_is_missing() -> None
     assert any(d.code == "unresolved-device" for d in session.diagnostics)
 
 
+def test_load_profile_preserves_known_action_with_unknown_actionmap_as_passthrough(tmp_path: Path) -> None:
+    repo = make_repository()
+    mutated_fixture = tmp_path / "profile_unknown_actionmap.xml"
+    mutated_fixture.write_text(
+        UNKNOWNS_FIXTURE.read_text(encoding="utf-8").replace(
+            'actionmap name="seat_general"',
+            'actionmap name="bogus_map"',
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    session = repo.load_profile(
+        mutated_fixture,
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    exported = repo.export_profile(session)
+
+    assert not any(binding.source_actionmap_name == "bogus_map" for binding in session.profile.bindings)
+    assert any(record.record_id.startswith("bogus_map:v_emergency_exit") for record in session.profile.passthrough_records)
+    assert any(d.code == "unknown-actionmap" for d in session.diagnostics)
+    assert exported.document is not None
+    bogus_map = next(action_map for action_map in exported.document.actionmap if action_map.name == "bogus_map")
+    bogus_action = next(action for action in bogus_map.action if action.name == "v_emergency_exit")
+    assert any(rebind.input == "js1_button18" for rebind in bogus_action.rebind)
+
+
 def test_compatibility_repository_wrapper_delegates_to_headless_repository() -> None:
     compat_repo = CompatActionMapsRepository(
         root=Path("tests/fixtures/profiles"),
