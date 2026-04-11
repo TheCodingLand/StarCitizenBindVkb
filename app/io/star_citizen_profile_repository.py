@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from app.domain import (
     ExportResult,
     GameCatalog,
     PassthroughRecord,
+    SessionCatalogSnapshot,
     TriggerMode,
     UnresolvedBinding,
     WorkingProfile,
@@ -51,6 +53,7 @@ class StarCitizenProfileRepository:
         )
         diagnostics: list[Diagnostic] = []
         active_catalog = catalog or self._load_catalog()
+        snapshot_catalog = deepcopy(active_catalog)
 
         for action_map in document.actionmap:
             for action in action_map.action:
@@ -74,7 +77,14 @@ class StarCitizenProfileRepository:
                         diagnostics.append(classification[1])
                         profile.unresolved_bindings.append(classification[2])
 
-        return BindingSession(profile=profile, diagnostics=diagnostics)
+        return BindingSession(
+            profile=profile,
+            diagnostics=diagnostics,
+            catalog_snapshot=SessionCatalogSnapshot(
+                version=snapshot_catalog.version,
+                catalog=snapshot_catalog,
+            ),
+        )
 
     def export_profile(self, session: BindingSession) -> ExportResult:
         profile = session.profile
@@ -98,7 +108,13 @@ class StarCitizenProfileRepository:
             document,
             profile.editable_source_record_ids | actively_replaced_passthrough_ids,
         )
-        self._apply_bindings(document, profile.bindings, profile.role_device_tokens, catalog)
+        self._apply_bindings(
+            document,
+            profile.bindings,
+            profile.role_device_tokens,
+            catalog,
+            profile.source_document,
+        )
 
         return ExportResult(
             changed_bindings=list(profile.bindings),
@@ -331,6 +347,7 @@ class StarCitizenProfileRepository:
         bindings: list[BindingEdit],
         role_device_tokens: dict[str, str],
         catalog: GameCatalog,
+        source_document: ExportedActionMapsFile | None,
     ) -> None:
         actionmaps_by_name = {action_map.name: action_map for action_map in document.actionmap}
 
@@ -374,7 +391,11 @@ class StarCitizenProfileRepository:
                     action_map.action.append(action)
 
                 rendered_input = self._render_binding_input(binding, role_device_tokens)
-                new_rebind = self._build_rebind(rendered_input, binding)
+                new_rebind = self._build_rebind(
+                    rendered_input,
+                    binding,
+                    modifier_activation_mode=self._modifier_activation_mode(binding, source_document),
+                )
                 if any(
                     self._rebind_signature(existing) == self._rebind_signature(new_rebind)
                     for existing in action.rebind
@@ -395,13 +416,51 @@ class StarCitizenProfileRepository:
         return f"{device_token}_{binding.slot_id}"
 
     @staticmethod
-    def _build_rebind(rendered_input: str, binding: BindingEdit) -> Rebind:
+    def _build_rebind(
+        rendered_input: str,
+        binding: BindingEdit,
+        *,
+        modifier_activation_mode: str | None = None,
+    ) -> Rebind:
         payload: dict[str, Any] = {"@input": rendered_input}
         if binding.trigger_mode is TriggerMode.MULTITAP:
             payload["@multiTap"] = 2
+        if binding.trigger_mode is TriggerMode.MODIFIER and modifier_activation_mode is not None:
+            payload["@activationMode"] = modifier_activation_mode
         if binding.trigger_mode is TriggerMode.HOLD:
             payload["@activationMode"] = "delayed_press"
         return Rebind.model_validate(payload)
+
+    def _modifier_activation_mode(
+        self,
+        binding: BindingEdit,
+        source_document: ExportedActionMapsFile | None,
+    ) -> str | None:
+        if binding.trigger_mode is not TriggerMode.MODIFIER:
+            return None
+        if source_document is None or binding.source_record_id is None:
+            return None
+
+        actionmap_name, action_name, rebind_index = binding.source_record_id.rsplit(":", 2)
+        try:
+            index = int(rebind_index)
+        except ValueError:
+            return None
+
+        action_map = next((item for item in source_document.actionmap if item.name == actionmap_name), None)
+        if action_map is None:
+            return None
+        action = next((item for item in action_map.action if item.name == action_name), None)
+        if action is None:
+            return None
+        rebinds = action.rebind or []
+        if index >= len(rebinds):
+            return None
+
+        activation_mode = str((rebinds[index].model_extra or {}).get("@activationMode") or "").strip().lower()
+        if activation_mode == "press":
+            return activation_mode
+        return None
 
     @staticmethod
     def _rebind_signature(rebind: Rebind) -> tuple[str, int | None, str | None]:

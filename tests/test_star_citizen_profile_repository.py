@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.domain import BindingEdit, TriggerMode
+from app.domain import BindingEdit, GameCatalog, GameCatalogVersion, TriggerMode
 from app.io import ActionCatalogRepository, DeviceLayoutRepository, StarCitizenProfileRepository
 from app.io.repositories import ActionMapsRepository as CompatActionMapsRepository
 from app.io.repositories import DeviceLayoutRepository as CompatLayoutRepository
@@ -42,6 +42,39 @@ def test_load_profile_marks_unresolved_device_when_role_map_is_missing() -> None
     )
 
     assert any(d.code == "unresolved-device" for d in session.diagnostics)
+
+
+def test_load_profile_captures_catalog_snapshot_for_direct_repository_use() -> None:
+    repo = make_repository()
+    catalog = repo.catalog_repo.load()
+
+    session = repo.load_profile(
+        UNKNOWNS_FIXTURE,
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+        catalog=catalog,
+    )
+    session.profile.bindings.append(
+        BindingEdit(
+            role="left_stick",
+            slot_id="button4",
+            action_name="v_toggle_qdrive_engagement",
+            trigger_mode=TriggerMode.PLAIN,
+        )
+    )
+    catalog.actionmap_by_name["v_toggle_qdrive_engagement"] = "bogus_map"
+    catalog.actionmaps_by_name["v_toggle_qdrive_engagement"] = ("bogus_map",)
+    repo._catalog = GameCatalog(version=GameCatalogVersion(key="mutated-catalog"))
+    exported = repo.export_profile(session)
+
+    assert session.catalog_snapshot is not None
+    assert session.catalog_snapshot.version.key == catalog.version.key
+    quantum_map = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "spaceship_quantum"
+    )
+    qdrive_action = next(
+        action for action in quantum_map.action if action.name == "v_toggle_qdrive_engagement"
+    )
+    assert any(rebind.input == "js1_button4" for rebind in qdrive_action.rebind)
 
 
 def test_load_profile_preserves_known_action_with_unknown_actionmap_as_passthrough(tmp_path: Path) -> None:

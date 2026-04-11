@@ -42,8 +42,22 @@ class BindingSessionService:
         session = self._require_session()
         parsed_trigger_mode = TriggerMode(trigger_mode)
         catalog = self._active_catalog(session)
-        existing_binding = self._find_slot_binding(session, role, slot, parsed_trigger_mode)
+        existing_bindings = self._find_slot_bindings(session, role, slot, parsed_trigger_mode)
+        if parsed_trigger_mode is TriggerMode.MODIFIER and self._has_ambiguous_modifier_tokens(existing_bindings):
+            self._append_ambiguous_modifier_token_diagnostic(session, role, slot)
+            return session
+
+        existing_binding = existing_bindings[0] if existing_bindings else None
+        modifier_token = (
+            existing_binding.modifier_token
+            if existing_binding is not None and parsed_trigger_mode is TriggerMode.MODIFIER
+            else None
+        )
         source_actionmap_name = None
+        source_record_id = existing_binding.source_record_id if existing_binding is not None else None
+        replaced_passthrough_record_id = (
+            existing_binding.replaced_passthrough_record_id if existing_binding is not None else None
+        )
         if (
             existing_binding is not None
             and existing_binding.source_actionmap_name in catalog.actionmaps_by_name.get(action, ())
@@ -64,12 +78,21 @@ class BindingSessionService:
             slot=slot,
             action=action,
             trigger_mode=parsed_trigger_mode,
+            modifier_token=modifier_token,
+            source_record_id=source_record_id,
             source_actionmap_name=source_actionmap_name,
+            replaced_passthrough_record_id=replaced_passthrough_record_id,
         )
 
     def unbind(self, role: str, slot: str, trigger_mode: str) -> BindingSession:
         session = self._require_session()
         parsed_trigger_mode = TriggerMode(trigger_mode)
+        if parsed_trigger_mode is TriggerMode.MODIFIER and self._has_ambiguous_modifier_tokens(
+            self._find_slot_bindings(session, role, slot, parsed_trigger_mode)
+        ):
+            self._append_ambiguous_modifier_token_diagnostic(session, role, slot)
+            return session
+
         session.profile.bindings = [
             binding
             for binding in session.profile.bindings
@@ -101,12 +124,19 @@ class BindingSessionService:
             return session
 
         catalog = self._active_catalog(session)
-        target_binding = self._find_slot_binding(
+        target_bindings = self._find_slot_bindings(
             session,
             source_binding.role,
             target_slot,
             source_binding.trigger_mode,
         )
+        if source_binding.trigger_mode is TriggerMode.MODIFIER and self._has_ambiguous_modifier_tokens(
+            target_bindings
+        ):
+            self._append_ambiguous_modifier_token_diagnostic(session, source_binding.role, target_slot)
+            return session
+
+        target_binding = target_bindings[0] if target_bindings else None
         if len(catalog.actionmaps_by_name.get(source_binding.action_name, ())) > 1:
             session.diagnostics.append(
                 Diagnostic(
@@ -193,11 +223,12 @@ class BindingSessionService:
 
     def export(self) -> ExportResult:
         session = self._require_session()
+        preserved_passthrough_count = self._preserved_passthrough_count(session)
         conflicts = self._detect_passthrough_conflicts(session)
         if conflicts:
             return ExportResult(
                 changed_bindings=list(session.profile.bindings),
-                preserved_passthrough_count=len(session.profile.passthrough_records),
+                preserved_passthrough_count=preserved_passthrough_count,
                 blocked_conflicts=conflicts,
             )
 
@@ -214,7 +245,7 @@ class BindingSessionService:
                 )
             return ExportResult(
                 changed_bindings=list(session.profile.bindings),
-                preserved_passthrough_count=len(session.profile.passthrough_records),
+                preserved_passthrough_count=preserved_passthrough_count,
             )
 
         return self.profile_repository.export_profile(session)
@@ -252,6 +283,19 @@ class BindingSessionService:
                 )
             )
         return conflicts
+
+    @staticmethod
+    def _preserved_passthrough_count(session: BindingSession) -> int:
+        actively_replaced_record_ids = {
+            binding.replaced_passthrough_record_id
+            for binding in session.profile.bindings
+            if binding.replaced_passthrough_record_id is not None
+        }
+        return sum(
+            1
+            for record in session.profile.passthrough_records
+            if record.record_id not in actively_replaced_record_ids
+        )
 
     def _drop_conflicting_bindings(self, session: BindingSession, conflict_id: str) -> BindingSession:
         record_id = conflict_id.removeprefix("conflict:")
@@ -292,16 +336,23 @@ class BindingSessionService:
         resolved_actionmap_name = entry.actionmap_name if entry is not None else source_actionmap_name
 
         for binding in session.profile.bindings:
-            if binding.role == role and binding.slot_id == slot and binding.trigger_mode is trigger_mode:
-                binding.action_name = action
-                binding.source_actionmap_name = resolved_actionmap_name
-                binding.source_record_id = source_record_id
-                binding.replaced_passthrough_record_id = replaced_passthrough_record_id
-                if trigger_mode is TriggerMode.MODIFIER:
-                    binding.modifier_token = resolved_modifier_token
-                else:
-                    binding.modifier_token = None
-                return session
+            if not (
+                binding.role == role and binding.slot_id == slot and binding.trigger_mode is trigger_mode
+            ):
+                continue
+
+            if trigger_mode is TriggerMode.MODIFIER and binding.modifier_token != resolved_modifier_token:
+                continue
+
+            binding.action_name = action
+            binding.source_actionmap_name = resolved_actionmap_name
+            binding.source_record_id = source_record_id
+            binding.replaced_passthrough_record_id = replaced_passthrough_record_id
+            if trigger_mode is TriggerMode.MODIFIER:
+                binding.modifier_token = resolved_modifier_token
+            else:
+                binding.modifier_token = None
+            return session
 
         session.profile.bindings.append(
             BindingEdit(
@@ -380,19 +431,49 @@ class BindingSessionService:
         return self.profile_repository.catalog_repo.load()
 
     @staticmethod
+    def _find_slot_bindings(
+        session: BindingSession,
+        role: str,
+        slot: str,
+        trigger_mode: TriggerMode,
+    ) -> list[BindingEdit]:
+        return [
+            binding
+            for binding in session.profile.bindings
+            if binding.role == role and binding.slot_id == slot and binding.trigger_mode is trigger_mode
+        ]
+
+    @staticmethod
+    def _has_ambiguous_modifier_tokens(bindings: list[BindingEdit]) -> bool:
+        modifier_tokens = {binding.modifier_token for binding in bindings}
+        return len(modifier_tokens) > 1
+
+    @classmethod
     def _find_slot_binding(
+        cls,
         session: BindingSession,
         role: str,
         slot: str,
         trigger_mode: TriggerMode,
     ) -> BindingEdit | None:
-        return next(
-            (
-                binding
-                for binding in session.profile.bindings
-                if binding.role == role and binding.slot_id == slot and binding.trigger_mode is trigger_mode
-            ),
-            None,
+        bindings = cls._find_slot_bindings(session, role, slot, trigger_mode)
+        return bindings[0] if bindings else None
+
+    @staticmethod
+    def _append_ambiguous_modifier_token_diagnostic(
+        session: BindingSession,
+        role: str,
+        slot: str,
+    ) -> None:
+        session.diagnostics.append(
+            Diagnostic(
+                code="ambiguous-modifier-token",
+                level="error",
+                message=(
+                    f"Modifier slot '{slot}' for role '{role}' has multiple imported modifier tokens and "
+                    "requires an explicit binding reference."
+                ),
+            )
         )
 
     def _find_binding_index(
@@ -433,7 +514,11 @@ class BindingSessionService:
                         main_category="",
                         sub_category="",
                     ),
-                    slot=InputSlot(device_uid=device_uid, side=side, slot_id=binding.slot_id),
+                    slot=InputSlot(
+                        device_uid=device_uid,
+                        side=side,
+                        slot_id=self._planner_slot_id(binding),
+                    ),
                     modifier=binding.trigger_mode is TriggerMode.MODIFIER,
                     hold=binding.trigger_mode is TriggerMode.HOLD,
                     multitap=binding.trigger_mode is TriggerMode.MULTITAP,
@@ -453,6 +538,16 @@ class BindingSessionService:
             left=BindingSet(side="left"),
             right=BindingSet(side="right"),
         )
+
+    @staticmethod
+    def _planner_slot_id(binding: BindingEdit) -> str:
+        if binding.trigger_mode is TriggerMode.MODIFIER:
+            return f"{binding.slot_id}|modifier:{binding.modifier_token or 'modifier'}"
+        if binding.trigger_mode is TriggerMode.HOLD:
+            return f"{binding.slot_id}|hold"
+        if binding.trigger_mode is TriggerMode.MULTITAP:
+            return f"{binding.slot_id}|multitap"
+        return binding.slot_id
 
     def _binding_key(
         self,

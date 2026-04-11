@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from app.domain import (
+    BindingEdit,
     BindingInput,
     BindingReference,
     BindingSession,
@@ -508,8 +509,9 @@ def test_modifier_binding_round_trips_without_losing_modifier_token() -> None:
         imported_role_map={"js1": "right_stick", "js2": "left_stick"},
     )
     modifier_binding = next(
-        binding for binding in session.profile.bindings if binding.trigger_mode is TriggerMode.MODIFIER
+        binding for binding in session.profile.bindings if binding.action_name == "prone_rollleft"
     )
+    device_token = session.profile.role_device_tokens[modifier_binding.role]
 
     service.bind(
         modifier_binding.role,
@@ -520,13 +522,166 @@ def test_modifier_binding_round_trips_without_losing_modifier_token() -> None:
     exported = service.profile_repository.export_profile(session)
 
     action_map = next(
-        item for item in exported.document.actionmap if item.name == "seat_general"
+        item for item in exported.document.actionmap if item.name == "prone"
     )
     action = next(item for item in action_map.action if item.name == modifier_binding.action_name)
     assert any(
-        rebind.input == f"js1_{modifier_binding.modifier_token}+{modifier_binding.slot_id}"
+        rebind.input == f"{device_token}_{modifier_binding.modifier_token}+{modifier_binding.slot_id}"
+        and (rebind.model_extra or {}).get("@activationMode") == "press"
         for rebind in action.rebind
     )
+
+
+def test_modifier_binding_without_press_activation_mode_round_trips_without_press() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/layout_VKB_final_3_22_exported.xml"),
+        imported_role_map={"js1": "right_stick", "js2": "left_stick"},
+    )
+    modifier_binding = next(
+        binding
+        for binding in session.profile.bindings
+        if binding.action_name == "v_weapon_bombing_hud_range_decrease"
+    )
+    device_token = session.profile.role_device_tokens[modifier_binding.role]
+
+    service.bind(
+        modifier_binding.role,
+        modifier_binding.slot_id,
+        modifier_binding.action_name,
+        modifier_binding.trigger_mode.value,
+    )
+    exported = service.profile_repository.export_profile(session)
+
+    action_map = next(
+        item for item in exported.document.actionmap if item.name == "spaceship_missiles"
+    )
+    action = next(item for item in action_map.action if item.name == modifier_binding.action_name)
+    assert any(
+        rebind.input == f"{device_token}_{modifier_binding.modifier_token}+{modifier_binding.slot_id}"
+        and (rebind.model_extra or {}).get("@activationMode") is None
+        for rebind in action.rebind
+    )
+
+
+def test_bind_preserves_existing_modifier_token_on_in_place_rebind() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/layout_VKB_final_3_22_exported.xml"),
+        imported_role_map={"js1": "right_stick", "js2": "left_stick"},
+    )
+    modifier_binding = next(
+        binding for binding in session.profile.bindings if binding.trigger_mode is TriggerMode.MODIFIER
+    )
+    modifier_binding.modifier_token = "lctrl"
+    device_token = session.profile.role_device_tokens[modifier_binding.role]
+
+    service.bind(
+        modifier_binding.role,
+        modifier_binding.slot_id,
+        modifier_binding.action_name,
+        modifier_binding.trigger_mode.value,
+    )
+    exported = service.profile_repository.export_profile(session)
+
+    assert exported.document is not None
+    action_map = next(
+        item for item in exported.document.actionmap if item.name == modifier_binding.source_actionmap_name
+    )
+    action = next(item for item in action_map.action if item.name == modifier_binding.action_name)
+    assert any(rebind.input == f"{device_token}_lctrl+{modifier_binding.slot_id}" for rebind in action.rebind)
+
+
+def test_service_export_keeps_distinct_trigger_modes_for_same_input() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("left_stick", "button6", "v_emergency_exit", "plain")
+    service.bind("left_stick", "button6", "v_emergency_exit", "hold")
+
+    exported = service.export()
+
+    assert exported.document is not None
+    assert not any(d.code == "validation-error" for d in service._require_session().diagnostics)
+
+
+def test_rebinding_existing_passthrough_replacement_preserves_replacement_identity() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
+    blocked = service.export()
+
+    service.replace_passthrough(
+        blocked.blocked_conflicts[0].conflict_id,
+        BindingInput(
+            role="right_stick",
+            slot_id="button3",
+            action_name="v_emergency_exit",
+            trigger_mode=TriggerMode.PLAIN,
+        ),
+    )
+    service.bind("right_stick", "button3", "v_toggle_qdrive_engagement", "plain")
+    exported = service.export()
+
+    assert exported.document is not None
+    seat_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "seat_general"
+    )
+    unknown_custom_action = next(
+        action for action in seat_general.action if action.name == "v_unknown_custom_action"
+    )
+    quantum_map = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "spaceship_quantum"
+    )
+    qdrive_action = next(
+        action for action in quantum_map.action if action.name == "v_toggle_qdrive_engagement"
+    )
+
+    assert all(rebind.input != "js2_button2" for rebind in unknown_custom_action.rebind)
+    assert any(rebind.input == "js2_button3" for rebind in qdrive_action.rebind)
+
+
+def test_failed_export_counts_only_unreplaced_passthrough_records() -> None:
+    service = BindingSessionService(make_repository())
+
+    service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    service.bind("right_stick", "button2", "v_emergency_exit", "plain")
+    blocked = service.export()
+
+    service.replace_passthrough(
+        blocked.blocked_conflicts[0].conflict_id,
+        BindingInput(
+            role="right_stick",
+            slot_id="button3",
+            action_name="v_emergency_exit",
+            trigger_mode=TriggerMode.PLAIN,
+        ),
+    )
+    service._require_session().profile.bindings.append(
+        BindingEdit(
+            role="right_stick",
+            slot_id="button3",
+            action_name="v_toggle_qdrive_engagement",
+            trigger_mode=TriggerMode.PLAIN,
+        )
+    )
+
+    failed_export = service.export()
+
+    assert failed_export.document is None
+    assert failed_export.preserved_passthrough_count == len(service._require_session().profile.passthrough_records) - 1
 
 
 def test_bind_rejects_unknown_action_before_export() -> None:
@@ -569,6 +724,122 @@ def test_bind_rejects_role_without_imported_device_token() -> None:
         for action in action_map.action
         for rebind in action.rebind
     )
+
+
+def test_bind_rejects_ambiguous_modifier_slot_without_modifier_token() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    session.profile.bindings.extend(
+        [
+            BindingEdit(
+                role="left_stick",
+                slot_id="button18",
+                action_name="v_emergency_exit",
+                trigger_mode=TriggerMode.MODIFIER,
+                modifier_token="rctrl",
+                source_actionmap_name="seat_general",
+            ),
+            BindingEdit(
+                role="left_stick",
+                slot_id="button18",
+                action_name="v_toggle_qdrive_engagement",
+                trigger_mode=TriggerMode.MODIFIER,
+                modifier_token="lalt",
+                source_actionmap_name="spaceship_quantum",
+            ),
+        ]
+    )
+    before = binding_snapshot(session)
+    baseline_ambiguous_count = sum(d.code == "ambiguous-modifier-token" for d in session.diagnostics)
+
+    updated = service.bind("left_stick", "button18", "v_ifcs_toggle_speed_limiter", "modifier")
+
+    assert binding_snapshot(updated) == before
+    assert sum(d.code == "ambiguous-modifier-token" for d in updated.diagnostics) == baseline_ambiguous_count + 1
+
+
+def test_unbind_rejects_ambiguous_modifier_slot_without_modifier_token() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    session.profile.bindings.extend(
+        [
+            BindingEdit(
+                role="left_stick",
+                slot_id="button18",
+                action_name="v_emergency_exit",
+                trigger_mode=TriggerMode.MODIFIER,
+                modifier_token="rctrl",
+                source_actionmap_name="seat_general",
+            ),
+            BindingEdit(
+                role="left_stick",
+                slot_id="button18",
+                action_name="v_toggle_qdrive_engagement",
+                trigger_mode=TriggerMode.MODIFIER,
+                modifier_token="lalt",
+                source_actionmap_name="spaceship_quantum",
+            ),
+        ]
+    )
+    before = binding_snapshot(session)
+    baseline_ambiguous_count = sum(d.code == "ambiguous-modifier-token" for d in session.diagnostics)
+
+    updated = service.unbind("left_stick", "button18", "modifier")
+
+    assert binding_snapshot(updated) == before
+    assert sum(d.code == "ambiguous-modifier-token" for d in updated.diagnostics) == baseline_ambiguous_count + 1
+
+
+def test_move_binding_reference_rejects_ambiguous_modifier_target_slot() -> None:
+    service = BindingSessionService(make_repository())
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/profile_with_unknowns.xml"),
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    session.profile.bindings.extend(
+        [
+            BindingEdit(
+                role="left_stick",
+                slot_id="button18",
+                action_name="v_emergency_exit",
+                trigger_mode=TriggerMode.MODIFIER,
+                modifier_token="rctrl",
+                source_actionmap_name="seat_general",
+            ),
+            BindingEdit(
+                role="left_stick",
+                slot_id="button18",
+                action_name="v_toggle_qdrive_engagement",
+                trigger_mode=TriggerMode.MODIFIER,
+                modifier_token="lalt",
+                source_actionmap_name="spaceship_quantum",
+            ),
+        ]
+    )
+    session = service.bind("left_stick", "button17", "v_ifcs_toggle_speed_limiter", "modifier")
+    source_binding = next(
+        binding
+        for binding in session.profile.bindings
+        if binding.role == "left_stick"
+        and binding.slot_id == "button17"
+        and binding.trigger_mode is TriggerMode.MODIFIER
+    )
+    before = binding_snapshot(session)
+    baseline_ambiguous_count = sum(d.code == "ambiguous-modifier-token" for d in session.diagnostics)
+
+    updated = service.move_binding(make_binding_reference(source_binding), "button18")
+
+    assert binding_snapshot(updated) == before
+    assert sum(d.code == "ambiguous-modifier-token" for d in updated.diagnostics) == baseline_ambiguous_count + 1
 
 
 def test_bind_rejects_invalid_slot_before_export() -> None:
