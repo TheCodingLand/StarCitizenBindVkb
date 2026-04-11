@@ -1,8 +1,8 @@
 from typing import Any, Optional, cast
 
-from PyQt6.QtCore import QModelIndex, Qt, QSortFilterProxyModel
+from PyQt6.QtCore import QModelIndex, QObject, Qt, QSortFilterProxyModel
 from PyQt6.QtGui import QStandardItem, QStandardItemModel
-from PyQt6.QtWidgets import QDialog, QHeaderView, QLineEdit, QTreeView, QVBoxLayout
+from PyQt6.QtWidgets import QDialog, QHeaderView, QLineEdit, QTreeView, QVBoxLayout, QWidget
 from pydantic import BaseModel
 
 from app.globals import localization_file
@@ -16,7 +16,7 @@ class WidgetItemRoleData(BaseModel):
 
 
 class ActionSelectionDialog(QDialog):
-    def __init__(self, actions_objs: AllActionMaps, parent: Optional[QDialog] = None):
+    def __init__(self, actions_objs: AllActionMaps, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Select Action")
         self.action_objs = actions_objs
@@ -104,7 +104,7 @@ class ActionSelectionDialog(QDialog):
 
 
 class ActionFilterProxyModel(QSortFilterProxyModel):
-    def __init__(self, parent: Optional[QDialog] = None):
+    def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
         self.search_text: str = ""
 

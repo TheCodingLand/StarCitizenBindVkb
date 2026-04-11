@@ -1,0 +1,32 @@
+<ActionMaps version="1" optionsVersion="2" rebindVersion="2" profileName="ProfileWithUnknowns">
+  <CustomisationUIHeader label="ProfileWithUnknowns" description="" image="">
+    <devices>
+      <keyboard instance="1" />
+      <mouse instance="1" />
+      <joystick instance="1" />
+      <joystick instance="2" />
+    </devices>
+    <categories />
+  </CustomisationUIHeader>
+  <options type="keyboard" instance="1" Product="KEYBOARD  {6F1D2B61-D5A0-11CF-BFC7-444553540000}" />
+  <options type="mouse" instance="1" Product="MOUSE  {6F1D2B60-D5A0-11CF-BFC7-444553540000}" />
+  <options type="joystick" instance="1" Product=" VKBsim Gladiator EVO R    {0200231D-0000-0000-0000-504944564944}" />
+  <options type="joystick" instance="2" Product=" VKBsim Gladiator EVO L    {0201231D-0000-0000-0000-504944564944}" />
+  <modifiers />
+  <actionmap name="seat_general">
+    <action name="v_emergency_exit" title="Emergency Exit Seat">
+      <rebind input="js1_button18" />
+    </action>
+    <action name="v_toggle_quantum_mode" title="Toggle Quantum Operator Mode">
+      <rebind input="js2_unknown_button" />
+    </action>
+    <action name="v_unknown_custom_action" title="Unknown Custom Action">
+      <rebind input="js2_button2" />
+    </action>
+  </actionmap>
+  <actionmap name="spaceship_general">
+    <action name="v_flightready" title="Flight / Systems Ready">
+      <rebind input="kb1_ralt+r" />
+    </action>
+  </actionmap>
+</ActionMaps>

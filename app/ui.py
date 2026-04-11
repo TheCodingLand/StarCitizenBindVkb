@@ -4,7 +4,7 @@ import sys
 import json
 import logging
 import copy
-from typing import Any, Dict, Optional, List, cast
+from typing import Any, Dict, Optional, List
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -29,7 +29,6 @@ import app.models.exported_configmap_xml as configmap
 from app.config import Config
 
 from app.models.full_game_control_options import (
-    DeviceActivation,
     GameAction,
     get_all_defined_game_actions,
     get_all_subcategories_actions,
@@ -348,7 +347,7 @@ class ControlMapperApp(QMainWindow):
         self.update_joystick_buttons()
         self.binding_planner_context.default_profile = self.build_control_profile_snapshot()
 
-    def get_joystick_sides(self, control_map: ExportedActionMapsFile) -> Dict[int, str]:
+    def get_joystick_sides(self, control_map: Optional[ExportedActionMapsFile]) -> Dict[int, str]:
         instance_number_mapping: Dict[int, str] = {}
         if control_map is None:
             return instance_number_mapping
@@ -509,8 +508,8 @@ class ControlMapperApp(QMainWindow):
             for game_action in default_action_conf:
                 # hold: bool = game_action.activation_mode == "delayed_press"
                 hold = game_action.on_hold == "1"
-                main_category: str = game_action.main_category
-                sub_category: str = game_action.sub_category
+                main_category = game_action.main_category or ""
+                sub_category = game_action.sub_category or ""
                 multitap: bool = rebind.multitap is not None
                 button = joystick_buttons.get(js_button)
                 if button is None:
@@ -583,16 +582,16 @@ class ControlMapperApp(QMainWindow):
             for game_action in action_game_map.action:
                 if game_action.name in configured_action_names:
                     continue
-                if game_action.joystick is None:
+                joystick_value = game_action.joystick
+                if joystick_value is None:
                     continue
                 raw_button: Optional[str]
-                if isinstance(game_action.joystick, str):
+                if isinstance(joystick_value, str):
                     hold = game_action.activation_mode == "delayed_press"
-                    raw_button = game_action.joystick
+                    raw_button = joystick_value
                 else:
-                    joystick_activation = cast(DeviceActivation, game_action.joystick)
-                    raw_button = joystick_activation.input
-                    hold = joystick_activation.activationmode == "delayed_press"
+                    raw_button = joystick_value.input
+                    hold = joystick_value.activationmode == "delayed_press"
                 js_button = (raw_button or "").strip()
                 if not js_button:
                     continue
@@ -637,7 +636,9 @@ class ControlMapperApp(QMainWindow):
         for control_map in self.exported_control_maps:
             self.control_maps_combo_box.addItem(Path(control_map).name)
 
-    def eventFilter(self, source: QObject, event: QEvent) -> bool:
+    def eventFilter(self, source: Optional[QObject], event: Optional[QEvent]) -> bool:
+        if source is None or event is None:
+            return False
         return super().eventFilter(source, event)
 
     def toggle_joystick(self) -> None:
@@ -698,7 +699,9 @@ class ControlMapperApp(QMainWindow):
         button.setStyleSheet("background-color: transparent;")
         self.apply_button_style(button, action=False)
         button.clicked.connect(
-            lambda _, btn=button, button_label=label: self.show_action_panel(btn, button_label)
+            lambda checked=False, btn=button, button_label=label: self.show_action_panel(
+                btn, button_label
+            )
         )
         button.show()
         self.button_refs[label] = button
@@ -789,7 +792,7 @@ class ControlMapperApp(QMainWindow):
 
         dialog = ActionSelectionDialog(cat_subcat_actions, self)
         if dialog.exec():
-            selected_action_name: str = dialog.selected_action
+            selected_action_name = dialog.selected_action
             if not selected_action_name:
                 return
             action = all_default_actions.get(selected_action_name)
