@@ -28,7 +28,7 @@ class JoystickActivityEvent:
     pygame_index: int
     saved_instance: int
     slot_name: str
-    input_kind: Literal["button", "hat", "trigger"]
+    input_kind: Literal["button", "hat", "trigger", "axis"]
     active: bool
     value: float
     timestamp: float
@@ -75,6 +75,7 @@ class JoystickMonitorService(QObject):
         self._layout_by_index: dict[int, SupportedJoystickLayout] = {}
         self._previous_snapshots: dict[int, DeviceSnapshot] = {}
         self._active_triggers: dict[tuple[int, int], bool] = {}
+        self._active_axes: dict[tuple[int, int], bool] = {}
 
         self._timer = QTimer(self)
         self._timer.setInterval(interval_ms)
@@ -105,6 +106,11 @@ class JoystickMonitorService(QObject):
             for key, is_active in self._active_triggers.items()
             if key[0] in active_indices and is_active
         }
+        self._active_axes = {
+            key: is_active
+            for key, is_active in self._active_axes.items()
+            if key[0] in active_indices and is_active
+        }
         self.devices_changed.emit(list(devices))
         return list(devices)
 
@@ -126,6 +132,7 @@ class JoystickMonitorService(QObject):
             previous = self._previous_snapshots.get(pygame_index)
             events.extend(self._diff_buttons(device, layout, previous, snapshot, timestamp))
             events.extend(self._diff_hats(device, layout, previous, snapshot, timestamp))
+            events.extend(self._diff_axes(device, layout, previous, snapshot, timestamp))
             events.extend(self._diff_triggers(device, layout, previous, snapshot, timestamp))
 
         merged_snapshots = dict(self._previous_snapshots)
@@ -260,12 +267,57 @@ class JoystickMonitorService(QObject):
                 )
         return events
 
+    def _diff_axes(
+        self,
+        device: DetectedJoystickDevice,
+        layout: SupportedJoystickLayout,
+        previous: DeviceSnapshot | None,
+        current: DeviceSnapshot,
+        timestamp: float,
+    ) -> list[JoystickActivityEvent]:
+        del previous
+
+        events: list[JoystickActivityEvent] = []
+        for mapping in layout.axis_slots:
+            axis_key = (device.pygame_index, mapping.axis_index)
+            current_value = self._axis_value(current, mapping.axis_index)
+            displacement = abs(current_value)
+            was_active = self._active_axes.get(axis_key, False)
+
+            if not was_active and displacement >= mapping.activate_at:
+                self._active_axes[axis_key] = True
+                events.append(
+                    self._build_event(
+                        device=device,
+                        slot_name=mapping.slot_name,
+                        input_kind="axis",
+                        active=True,
+                        value=current_value,
+                        timestamp=timestamp,
+                    )
+                )
+                continue
+
+            if was_active and displacement < mapping.clear_below:
+                self._active_axes.pop(axis_key, None)
+                events.append(
+                    self._build_event(
+                        device=device,
+                        slot_name=mapping.slot_name,
+                        input_kind="axis",
+                        active=False,
+                        value=current_value,
+                        timestamp=timestamp,
+                    )
+                )
+        return events
+
     def _build_event(
         self,
         *,
         device: DetectedJoystickDevice,
         slot_name: str,
-        input_kind: Literal["button", "hat", "trigger"],
+        input_kind: Literal["button", "hat", "trigger", "axis"],
         active: bool,
         value: float,
         timestamp: float,

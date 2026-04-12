@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QCloseEvent, QIcon, QPixmap
-from PyQt6.QtCore import QPoint, QRect, Qt, QEvent, QObject
+from PyQt6.QtCore import QPoint, QRect, QSize, Qt, QEvent, QObject
 from PyQt6 import QtGui
 import app.models.exported_configmap_xml as configmap
 from app.config import Config
@@ -164,6 +164,7 @@ class ControlMapperApp(QMainWindow):
         self.init_ui()
         self.joystick_activity_overlay = JoystickActivityOverlay(
             slot_positions=self._slot_positions_for_side(self.current_joystick),
+            slot_size=QSize(width, height),
             parent=self.background_label,
         )
         self.joystick_activity_overlay.setGeometry(self.background_label.rect())
@@ -515,7 +516,8 @@ class ControlMapperApp(QMainWindow):
         }
         self.joystick_activity_overlay.setGeometry(self.background_label.rect())
         self.joystick_activity_overlay.set_slot_positions(
-            self._slot_positions_for_side(self.current_joystick)
+            self._slot_positions_for_side(self.current_joystick),
+            slot_size=QSize(width, height),
         )
         self.joystick_activity_overlay.raise_()
 

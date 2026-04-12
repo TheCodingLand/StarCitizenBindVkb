@@ -66,7 +66,9 @@ def activity_event(
     product_guid: str = "guid-left",
     pygame_index: int = 0,
     slot_name: str = "button3",
+    input_kind: str = "button",
     active: bool = True,
+    value: float | None = None,
     timestamp: float = 1000.0,
 ) -> JoystickActivityEvent:
     return JoystickActivityEvent(
@@ -74,9 +76,9 @@ def activity_event(
         pygame_index=pygame_index,
         saved_instance=1,
         slot_name=slot_name,
-        input_kind="button",
+        input_kind=input_kind,
         active=active,
-        value=1.0 if active else 0.0,
+        value=(1.0 if active else 0.0) if value is None else value,
         timestamp=timestamp,
     )
 
@@ -174,6 +176,43 @@ def test_main_window_highlights_matching_slot_for_assigned_device(
 
     overlay = require_attr(main_window, "joystick_activity_overlay")
     assert "button3" in overlay.active_pulses
+
+
+def test_main_window_keeps_axis_highlight_active_while_displaced(
+    main_window: ControlMapperApp,
+) -> None:
+    main_window.config.joystick_instance_left = 1
+    main_window.current_joystick = "left"
+    require_attr(main_window, "_refresh_live_activity_assignments")()
+
+    require_attr(main_window, "_handle_joystick_activity")(
+        activity_event(
+            product_guid="guid-left",
+            pygame_index=0,
+            slot_name="x",
+            input_kind="axis",
+            active=True,
+            value=0.82,
+        )
+    )
+
+    overlay = require_attr(main_window, "joystick_activity_overlay")
+    overlay._expire_stale_pulses(now_ms=5000.0)
+    assert "x" in overlay.active_pulses
+
+    require_attr(main_window, "_handle_joystick_activity")(
+        activity_event(
+            product_guid="guid-left",
+            pygame_index=0,
+            slot_name="x",
+            input_kind="axis",
+            active=False,
+            value=0.0,
+            timestamp=5001.0,
+        )
+    )
+
+    assert "x" not in overlay.active_pulses
 
 
 def test_settings_dialog_accept(qtbot: Any) -> None:

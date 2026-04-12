@@ -126,7 +126,7 @@ def test_hat_direction_emits_active_and_clear_events() -> None:
     assert [(event.slot_name, event.active) for event in second] == [("hat1_up", False)]
 
 
-def test_trigger_threshold_emits_active_and_clear_events() -> None:
+def test_axis_threshold_emits_active_and_clear_events() -> None:
     backend = FakeJoystickBackend(
         devices=[RawJoystickDevice(0, "VKBsim Gladiator EVO L", "guid-left", 8, 32)],
         snapshots=[
@@ -134,14 +134,21 @@ def test_trigger_threshold_emits_active_and_clear_events() -> None:
                 0: DeviceSnapshot(
                     buttons=(False,) * 32,
                     hats=((0, 0),),
-                    axes=(0.0, 0.0, 0.82, 0.0, 0.0, 0.0, 0.0, 0.0),
+                    axes=(0.82, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
                 )
             },
             {
                 0: DeviceSnapshot(
                     buttons=(False,) * 32,
                     hats=((0, 0),),
-                    axes=(0.0, 0.0, 0.15, 0.0, 0.0, 0.0, 0.0, 0.0),
+                    axes=(0.82, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+                )
+            },
+            {
+                0: DeviceSnapshot(
+                    buttons=(False,) * 32,
+                    hats=((0, 0),),
+                    axes=(0.15, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
                 )
             },
         ],
@@ -151,9 +158,15 @@ def test_trigger_threshold_emits_active_and_clear_events() -> None:
 
     first = monitor.poll_once()
     second = monitor.poll_once()
+    third = monitor.poll_once()
 
-    assert [(event.slot_name, event.active) for event in first] == [("trigger_left", True)]
-    assert [(event.slot_name, event.active) for event in second] == [("trigger_left", False)]
+    assert [(event.slot_name, event.input_kind, event.active) for event in first] == [
+        ("x", "axis", True)
+    ]
+    assert second == []
+    assert [(event.slot_name, event.input_kind, event.active) for event in third] == [
+        ("x", "axis", False)
+    ]
 
 
 def test_unmapped_axis_motion_is_ignored() -> None:
@@ -164,7 +177,7 @@ def test_unmapped_axis_motion_is_ignored() -> None:
                 0: DeviceSnapshot(
                     buttons=(False,) * 32,
                     hats=((0, 0),),
-                    axes=(0.0, 0.0, 0.0, 0.0, 0.91, 0.0, 0.0, 0.0),
+                    axes=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.91),
                 )
             },
         ],

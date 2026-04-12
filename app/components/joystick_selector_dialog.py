@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.components.joystick_activity_overlay import JoystickActivityOverlay
+from app.components.joystick_activity_overlay import DEFAULT_SLOT_SIZE, JoystickActivityOverlay
 from app.config import Config
 from app.globals import APP_PATH
 from app.models.joystick_layout_support import slot_positions_for_layout
@@ -217,7 +217,8 @@ class JoystickSelectorDialog(QDialog):
                 preview_side,
                 pixmap.size(),
                 scaled_pixmap.size(),
-            )
+            ),
+            slot_size=self._scaled_preview_slot_size(pixmap.size(), scaled_pixmap.size()),
         )
         self.preview_overlay.show()
         self.preview_overlay.raise_()
@@ -294,6 +295,17 @@ class JoystickSelectorDialog(QDialog):
             )
             for slot_name, position in slot_positions.items()
         }
+
+    def _scaled_preview_slot_size(self, original_size: QSize, scaled_size: QSize) -> QSize:
+        if original_size.width() <= 0 or original_size.height() <= 0:
+            return QSize(DEFAULT_SLOT_SIZE)
+
+        scale_x = scaled_size.width() / original_size.width()
+        scale_y = scaled_size.height() / original_size.height()
+        return QSize(
+            max(20, int(round(DEFAULT_SLOT_SIZE.width() * scale_x))),
+            max(10, int(round(DEFAULT_SLOT_SIZE.height() * scale_y))),
+        )
 
     def _clear_preview_surface(self) -> None:
         self.preview_surface.clear()

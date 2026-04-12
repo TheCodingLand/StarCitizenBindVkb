@@ -17,6 +17,14 @@ class TriggerAxisMapping:
 
 
 @dataclass(frozen=True)
+class AxisSlotMapping:
+    axis_index: int
+    slot_name: str
+    activate_at: float
+    clear_below: float
+
+
+@dataclass(frozen=True)
 class SupportedJoystickLayout:
     key: str
     display_name: str
@@ -25,6 +33,7 @@ class SupportedJoystickLayout:
     button_slots: dict[int, str]
     hat_slots: dict[tuple[int, int], str]
     trigger_axes: tuple[TriggerAxisMapping, ...]
+    axis_slots: tuple[AxisSlotMapping, ...] = ()
 
     def matches(self, product_name: str) -> bool:
         normalized = product_name.casefold()
@@ -45,8 +54,15 @@ VKB_DEFAULT_HAT_SLOTS = {
 }
 
 VKB_DEFAULT_TRIGGER_AXES = (
-    TriggerAxisMapping(axis_index=2, slot_name="trigger_left", activate_at=0.75, clear_below=0.35),
-    TriggerAxisMapping(axis_index=5, slot_name="trigger_right", activate_at=0.75, clear_below=0.35),
+)
+
+VKB_DEFAULT_AXIS_SLOTS = (
+    AxisSlotMapping(axis_index=0, slot_name="x", activate_at=0.55, clear_below=0.20),
+    AxisSlotMapping(axis_index=1, slot_name="y", activate_at=0.55, clear_below=0.20),
+    AxisSlotMapping(axis_index=2, slot_name="z", activate_at=0.55, clear_below=0.20),
+    AxisSlotMapping(axis_index=3, slot_name="rotx", activate_at=0.55, clear_below=0.20),
+    AxisSlotMapping(axis_index=4, slot_name="roty", activate_at=0.55, clear_below=0.20),
+    AxisSlotMapping(axis_index=5, slot_name="rotz", activate_at=0.55, clear_below=0.20),
 )
 
 SUPPORTED_LAYOUTS = (
@@ -58,6 +74,7 @@ SUPPORTED_LAYOUTS = (
         button_slots=VKB_DEFAULT_BUTTON_SLOTS,
         hat_slots=VKB_DEFAULT_HAT_SLOTS,
         trigger_axes=VKB_DEFAULT_TRIGGER_AXES,
+        axis_slots=VKB_DEFAULT_AXIS_SLOTS,
     ),
 )
 
@@ -68,7 +85,11 @@ def slot_positions_for_layout(layout_key: str, side: Literal["left", "right"]) -
         raise ValueError(f"Unsupported layout key: {layout_key}")
 
     buttons = get_joystick_buttons(layout.chart_name)
-    supported_slot_names = set(layout.button_slots.values()) | set(layout.hat_slots.values())
+    supported_slot_names = (
+        set(layout.button_slots.values())
+        | set(layout.hat_slots.values())
+        | {mapping.slot_name for mapping in layout.axis_slots}
+    )
     positions = {
         slot_name: QPoint(button.coord_x_left[side], button.coord_y_top)
         for slot_name, button in buttons.items()
@@ -76,14 +97,19 @@ def slot_positions_for_layout(layout_key: str, side: Literal["left", "right"]) -
     }
     positions.update(
         {
-            "trigger_left": QPoint(1540 if side == "left" else 280, 335),
-            "trigger_right": QPoint(1540 if side == "left" else 280, 190),
+            mapping.slot_name: (
+                QPoint(1540 if side == "left" else 280, 335)
+                if mapping.slot_name == "trigger_left"
+                else QPoint(1540 if side == "left" else 280, 190)
+            )
+            for mapping in layout.trigger_axes
         }
     )
     return positions
 
 
 __all__ = [
+    "AxisSlotMapping",
     "SUPPORTED_LAYOUTS",
     "SupportedJoystickLayout",
     "TriggerAxisMapping",
