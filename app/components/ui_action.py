@@ -1,26 +1,28 @@
+from dataclasses import dataclass
 from typing import Any, Optional, cast
 
 from PyQt6.QtCore import QModelIndex, QObject, Qt, QSortFilterProxyModel
 from PyQt6.QtGui import QStandardItem, QStandardItemModel
 from PyQt6.QtWidgets import QDialog, QHeaderView, QLineEdit, QTreeView, QVBoxLayout, QWidget
-from pydantic import BaseModel
+from app.services import SessionCatalogEntry
 
 from app.globals import localization_file
-from app.models.full_game_control_options import AllActionMaps
 
 
-class WidgetItemRoleData(BaseModel):
+@dataclass(frozen=True)
+class WidgetItemRoleData:
     is_category: bool = False
     original_name: str = ""
     translated_name: str = ""
+    catalog_entry: SessionCatalogEntry | None = None
 
 
 class ActionSelectionDialog(QDialog):
-    def __init__(self, actions_objs: AllActionMaps, parent: Optional[QWidget] = None):
+    def __init__(self, entries: list[SessionCatalogEntry], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Select Action")
-        self.action_objs = actions_objs
-        self.selected_action: Optional[str] = None
+        self.entries = entries
+        self.selected_action: SessionCatalogEntry | None = None
         self.resize(600, 800)  # Adjust the size as needed
         self.init_ui()
 
@@ -41,23 +43,26 @@ class ActionSelectionDialog(QDialog):
             raise RuntimeError("QStandardItemModel did not return a root item")
         self.root_node = root_node
 
-        for category, sub_actions in self.action_objs.root.items():
+        grouped_entries: dict[str, list[SessionCatalogEntry]] = {}
+        for entry in self.entries:
+            grouped_entries.setdefault(entry.category, []).append(entry)
+
+        for category, category_entries in sorted(grouped_entries.items()):
             category_item = QStandardItem(localization_file.get_localization_string(category))
             category_item.setData(
                 WidgetItemRoleData(is_category=True, original_name=category),
                 Qt.ItemDataRole.UserRole,
             )
 
-            for action in sub_actions.action:
-                action_label = (
-                    localization_file.get_localization_string(action.ui_label)
-                    if action.ui_label
-                    else action.name
-                )
+            for entry in sorted(category_entries, key=lambda value: value.display_label.casefold()):
+                action_label = entry.display_label or entry.action_name
                 action_item = QStandardItem(action_label)
                 action_item.setData(
                     WidgetItemRoleData(
-                        original_name=action.name, translated_name=action_label, is_category=False
+                        original_name=entry.action_name,
+                        translated_name=action_label,
+                        is_category=False,
+                        catalog_entry=entry,
                     ),
                     Qt.ItemDataRole.UserRole,
                 )
@@ -99,7 +104,7 @@ class ActionSelectionDialog(QDialog):
             else:
                 role_data = item.data(Qt.ItemDataRole.UserRole)
                 if isinstance(role_data, WidgetItemRoleData):
-                    self.selected_action = role_data.original_name
+                    self.selected_action = role_data.catalog_entry
                 self.accept()
 
 

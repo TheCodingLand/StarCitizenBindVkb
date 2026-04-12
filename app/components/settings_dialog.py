@@ -1,32 +1,29 @@
-# main.py
-
-from typing import Optional
+from __future__ import annotations
 
 from PyQt6.QtWidgets import QPushButton, QComboBox, QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtWidgets import QDialog, QFormLayout, QLineEdit, QSpinBox, QDialogButtonBox
 
+from app.components.joystick_selector_dialog import JoystickSelectorDialog
 from app.config import Config
-
-from app.utils.devices import get_controller_devices  # returns List[SystemDevices]
-
-""" #for reference
-class SystemDevice(BaseModel):
-    name: str
-    instance: int
-    product_guid: str
-    product_name: str
-    num_axes: int
-    num_buttons: int
-"""
+from app.services import JoystickMonitorService
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, config: Config, parent: Optional[QWidget] = None):
+    def __init__(
+        self,
+        config: Config,
+        parent: QWidget | None = None,
+        joystick_monitor: JoystickMonitorService | None = None,
+    ) -> None:
         super().__init__(parent)
         self.config = config
+        monitor = joystick_monitor if joystick_monitor is not None else JoystickMonitorService()
+        self.joystick_monitor: JoystickMonitorService = monitor
+        self.selector_dialog: JoystickSelectorDialog | None = None
+        self.selector_saved = False
         self.init_ui()
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         self.setWindowTitle("Settings")
         self.layout = QVBoxLayout(self)
 
@@ -97,6 +94,10 @@ class SettingsDialog(QDialog):
 
         self.layout.addLayout(form_layout)
 
+        self.joystick_selector_button = QPushButton("Joystick Selector")
+        self.joystick_selector_button.clicked.connect(self.open_joystick_selector)
+        self.layout.addWidget(self.joystick_selector_button)
+
         # OK and Cancel buttons
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -105,14 +106,32 @@ class SettingsDialog(QDialog):
         button_box.rejected.connect(self.reject)
         self.layout.addWidget(button_box)
 
-    def browse_installation_path(self):
+    def browse_installation_path(self) -> None:
         directory = QFileDialog.getExistingDirectory(
             self, "Select Installation Directory", self.installation_path_line_edit.text()
         )
         if directory:
             self.installation_path_line_edit.setText(directory)
 
-    def accept(self):
+    def open_joystick_selector(self) -> None:
+        self.selector_dialog = JoystickSelectorDialog(self.config, self.joystick_monitor, self)
+        self.selector_dialog.finished.connect(self._handle_selector_dialog_finished)
+        self.selector_dialog.open()
+
+    def _handle_selector_dialog_finished(self, result: int) -> None:
+        if result == int(QDialog.DialogCode.Accepted):
+            self.selector_saved = True
+            self.reload_fields_from_config()
+
+    def reload_fields_from_config(self) -> None:
+        self.joystick_left_name_filter_line_edit.setText(self.config.joystick_left_name_filter)
+        self.joystick_right_name_filter_line_edit.setText(self.config.joystick_right_name_filter)
+        self.joystick_type_left_line_edit.setText(self.config.joystick_type_left)
+        self.joystick_type_right_line_edit.setText(self.config.joystick_type_right)
+        self.joystick_instance_left_spin_box.setValue(self.config.joystick_instance_left)
+        self.joystick_instance_right_spin_box.setValue(self.config.joystick_instance_right)
+
+    def accept(self) -> None:
         # Update the config with new values
         self.config.installation_path = self.installation_path_line_edit.text()
         self.config.install_type = self.install_type_combo_box.currentText()

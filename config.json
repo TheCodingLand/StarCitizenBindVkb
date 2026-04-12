@@ -1,12 +1,12 @@
 {
     "installation_path": "F:/Star Citizen/StarCitizen",
     "install_type": "LIVE",
-    "joystick_left_name_filter": "New Left Joystick",
-    "joystick_right_name_filter": "New Right Joystick",
-    "joystick_type_left": "New Type Left",
-    "joystick_type_right": "New Type Right",
-    "joystick_instance_left": 3,
-    "joystick_instance_right": 4,
+    "joystick_left_name_filter": "VKBsim Gladiator EVO OT L",
+    "joystick_right_name_filter": "VKBsim Gladiator EVO R",
+    "joystick_type_left": "VKB Default",
+    "joystick_type_right": "VKB Default",
+    "joystick_instance_left": 2,
+    "joystick_instance_right": 1,
     "joystick_side_identifier_left": "L",
     "joystick_side_identifier_right": "R",
     "modifier_key": "rctrl"
