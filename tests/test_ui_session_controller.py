@@ -143,13 +143,18 @@ class FakeSessionService:
         self.bind_hook: Callable[[BindingSession, str, str, str, str], None] | None = None
         self.move_hook: Callable[[BindingSession, BindingReference, str], None] | None = None
         self.remove_hook: Callable[[BindingSession, BindingReference], None] | None = None
-        self.open_calls: list[tuple[Path, dict[str, str]]] = []
+        self.open_calls: list[tuple[Path, dict[str, str], dict[str, str] | None]] = []
         self.bind_calls: list[tuple[str, str, str, str]] = []
         self.move_calls: list[tuple[BindingReference, str]] = []
         self.remove_calls: list[BindingReference] = []
 
-    def open_profile(self, path: Path, imported_role_map: dict[str, str]) -> BindingSession:
-        self.open_calls.append((path, dict(imported_role_map)))
+    def open_profile(
+        self,
+        path: Path,
+        imported_role_map: dict[str, str],
+        export_role_tokens: dict[str, str] | None = None,
+    ) -> BindingSession:
+        self.open_calls.append((path, dict(imported_role_map), dict(export_role_tokens) if export_role_tokens else None))
         if self.open_exception is not None:
             raise self.open_exception
         if self.session is None:
@@ -230,10 +235,14 @@ class FakeSessionService:
 def make_controller(
     service: FakeSessionService,
     resolver: Callable[[Path], dict[str, str] | dict[str, tuple[str, ...]]],
+    export_resolver: Callable[[], dict[str, str]] | None = None,
+    default_session_resolver: Callable[[dict[str, str], GameCatalog], BindingSession | None] | None = None,
 ) -> UiSessionController:
     return UiSessionController(
         session_service=service,
         imported_role_resolver=resolver,
+        export_role_token_resolver=export_resolver,
+        default_session_resolver=default_session_resolver,
         joystick_buttons_by_slot=joystick_buttons_by_slot(),
     )
 
@@ -268,6 +277,58 @@ def test_open_profile_with_partial_role_map_keeps_load_diagnostics() -> None:
         row.kind == "unresolved-device" and row.action == "seat_exit"
         for row in controller.load_diagnostics
     )
+
+
+def test_open_profile_passes_configured_export_role_tokens_to_session_service() -> None:
+    catalog = make_catalog(make_action_definition("seat_exit", actionmap_name="seat_general"))
+    session = make_session(
+        catalog=catalog,
+        role_device_tokens={"left_stick": "js2", "right_stick": "js1"},
+    )
+    service = FakeSessionService(session=session, export_steps=[ExportResult(document={"ok": True})])
+    controller = make_controller(
+        service,
+        resolver=lambda _: {"js1": "right_stick", "js2": "left_stick"},
+        export_resolver=lambda: {"left_stick": "js1", "right_stick": "js2"},
+    )
+
+    assert controller.open_profile(Path("profile.xml")) is True
+    assert service.open_calls == [
+        (
+            Path("profile.xml"),
+            {"js1": "right_stick", "js2": "left_stick"},
+            {"left_stick": "js1", "right_stick": "js2"},
+        )
+    ]
+
+
+def test_open_profile_exposes_effective_default_projection_separately_from_explicit_projection() -> None:
+    catalog = make_catalog(make_action_definition("default_pitch", actionmap_name="spaceship_movement"))
+    session = make_session(catalog=catalog, bindings=[])
+    default_session = make_session(
+        catalog=catalog,
+        bindings=[
+            make_binding(
+                "default_pitch",
+                slot_id="button1",
+                source_actionmap_name="spaceship_movement",
+            )
+        ],
+    )
+    service = FakeSessionService(session=session, export_steps=[ExportResult(document={"ok": True})])
+    controller = make_controller(
+        service,
+        resolver=lambda _: {"js1": "left_stick"},
+        export_resolver=lambda: {"left_stick": "js1"},
+        default_session_resolver=lambda _tokens, _catalog: default_session,
+    )
+
+    assert controller.open_profile(Path("profile.xml")) is True
+    assert not controller.left_config.configured_actions
+    assert "default_pitch" in {
+        action.name for action in controller.effective_left_config.configured_actions.values()
+    }
+    assert any(row.binding_source == "default" for row in controller.effective_binding_rows)
 
 
 def test_open_profile_failure_resets_to_safe_empty_state() -> None:

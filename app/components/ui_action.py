@@ -54,8 +54,8 @@ class ActionSelectionDialog(QDialog):
                 Qt.ItemDataRole.UserRole,
             )
 
-            for entry in sorted(category_entries, key=lambda value: value.display_label.casefold()):
-                action_label = entry.display_label or entry.action_name
+            for entry in sorted(category_entries, key=lambda value: _localized_entry_label(value).casefold()):
+                action_label = _localized_entry_label(entry)
                 action_item = QStandardItem(action_label)
                 action_item.setData(
                     WidgetItemRoleData(
@@ -159,3 +159,7 @@ class ActionFilterProxyModel(QSortFilterProxyModel):
                 return True
 
         return False
+
+
+def _localized_entry_label(entry: SessionCatalogEntry) -> str:
+    return localization_file.get_localization_string(entry.display_label or entry.action_name)

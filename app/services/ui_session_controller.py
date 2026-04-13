@@ -6,7 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TypeAlias
 
-from app.domain import BindingReference, BindingSession, Diagnostic, TriggerMode, UnresolvedBinding
+from app.domain import BindingReference, BindingSession, Diagnostic, GameCatalog, TriggerMode, UnresolvedBinding
 from app.models.joystick import JoyStickButton
 
 from .binding_session import BindingSessionService
@@ -32,6 +32,8 @@ SIDE_TO_ROLE = {
 
 ResolverValue: TypeAlias = str | Iterable[str] | None
 ImportedRoleResolver: TypeAlias = Callable[[Path], Mapping[str, ResolverValue]]
+ExportRoleTokenResolver: TypeAlias = Callable[[], Mapping[str, str]]
+DefaultSessionResolver: TypeAlias = Callable[[Mapping[str, str], GameCatalog | None], BindingSession | None]
 
 
 class UiSessionController:
@@ -40,15 +42,20 @@ class UiSessionController:
         *,
         session_service: BindingSessionService,
         imported_role_resolver: ImportedRoleResolver,
+        export_role_token_resolver: ExportRoleTokenResolver | None = None,
+        default_session_resolver: DefaultSessionResolver | None = None,
         joystick_buttons_by_slot: Mapping[str, JoyStickButton],
         logger: logging.Logger | None = None,
     ) -> None:
         self._session_service = session_service
         self._imported_role_resolver = imported_role_resolver
+        self._export_role_token_resolver = export_role_token_resolver
+        self._default_session_resolver = default_session_resolver
         self._joystick_buttons_by_slot = dict(joystick_buttons_by_slot)
         self._logger = logger or logging.getLogger(__name__)
 
         self._session: BindingSession | None = None
+        self._default_session: BindingSession | None = None
         self._projection = ProjectedSessionView()
         self._catalog_entries: list[SessionCatalogEntry] = []
         self._load_diagnostics: list[UiDiagnosticRow] = []
@@ -70,8 +77,20 @@ class UiSessionController:
         return self._projection.right_config.model_copy(deep=True)
 
     @property
+    def effective_left_config(self):
+        return self._projection.effective_left_config.model_copy(deep=True)
+
+    @property
+    def effective_right_config(self):
+        return self._projection.effective_right_config.model_copy(deep=True)
+
+    @property
     def binding_rows(self) -> list:
         return list(self._projection.binding_rows)
+
+    @property
+    def effective_binding_rows(self) -> list:
+        return list(self._projection.effective_binding_rows)
 
     @property
     def catalog_entries(self) -> list[SessionCatalogEntry]:
@@ -111,13 +130,21 @@ class UiSessionController:
     def open_profile(self, path: Path) -> bool:
         try:
             imported_role_map = self._normalize_imported_role_map(self._imported_role_resolver(path))
-            session = self._session_service.open_profile(path, imported_role_map)
+            export_role_tokens = self._normalize_export_role_tokens(
+                self._export_role_token_resolver() if self._export_role_token_resolver is not None else {}
+            )
+            session = self._session_service.open_profile(
+                path,
+                imported_role_map,
+                export_role_tokens=export_role_tokens or None,
+            )
         except Exception:
             self._logger.exception("Failed to open profile %s", path)
             self._reset_state()
             return False
 
         self._session = session
+        self._default_session = self._resolve_default_session(export_role_tokens, session)
         self._load_diagnostics = self._normalize_backend_diagnostics(
             session.diagnostics,
             session.profile.unresolved_bindings,
@@ -277,9 +304,25 @@ class UiSessionController:
         self._projection = project_session_view(
             self._session,
             joystick_buttons_by_slot=self._joystick_buttons_by_slot,
+            default_session=self._default_session,
         )
         self._catalog_entries = build_session_catalog_entries(self._session.catalog_snapshot.catalog)
         self._projection_diagnostics = self._dedupe_diagnostic_rows(self._projection.diagnostics)
+
+    def _resolve_default_session(
+        self,
+        export_role_tokens: Mapping[str, str],
+        session: BindingSession,
+    ) -> BindingSession | None:
+        if self._default_session_resolver is None:
+            return None
+
+        try:
+            catalog = session.catalog_snapshot.catalog if session.catalog_snapshot is not None else None
+            return self._default_session_resolver(export_role_tokens, catalog)
+        except Exception:
+            self._logger.exception("Failed to resolve default session overlay")
+            return None
 
     def _refresh_export_state(self) -> None:
         if self._session is None:
@@ -379,6 +422,17 @@ class UiSessionController:
         return tuple(unique_roles)
 
     @staticmethod
+    def _normalize_export_role_tokens(role_tokens: Mapping[str, str]) -> dict[str, str]:
+        normalized: dict[str, str] = {}
+        for role, device_token in role_tokens.items():
+            normalized_role = str(role).strip()
+            normalized_token = str(device_token).strip()
+            if normalized_role not in ROLE_TO_SIDE or not normalized_token:
+                continue
+            normalized[normalized_role] = normalized_token
+        return normalized
+
+    @staticmethod
     def _binding_snapshot(session: BindingSession) -> list[tuple[str, str, str, TriggerMode, str | None, str | None, str | None]]:
         return sorted(
             (
@@ -471,6 +525,7 @@ class UiSessionController:
 
     def _reset_state(self) -> None:
         self._session = None
+        self._default_session = None
         self._projection = ProjectedSessionView()
         self._catalog_entries = []
         self._load_diagnostics = []

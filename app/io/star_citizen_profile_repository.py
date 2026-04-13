@@ -67,6 +67,8 @@ class StarCitizenProfileRepository:
                         imported_role_map=imported_role_map,
                         catalog=active_catalog,
                     )
+                    if classification is None:
+                        continue
                     if isinstance(classification, BindingEdit):
                         profile.bindings.append(classification)
                         profile.editable_source_record_ids.add(record_id)
@@ -122,6 +124,46 @@ class StarCitizenProfileRepository:
             document=document,
         )
 
+    def align_session_device_tokens(self, session: BindingSession, role_device_tokens: dict[str, str]) -> None:
+        current_tokens = dict(session.profile.role_device_tokens)
+        normalized_tokens = {
+            role: token.strip()
+            for role, token in role_device_tokens.items()
+            if role in ROLE_TO_SIDE and isinstance(token, str) and token.strip()
+        }
+        if not normalized_tokens:
+            return
+
+        merged_tokens = dict(current_tokens)
+        merged_tokens.update(normalized_tokens)
+        token_replacements = {
+            current_token: merged_tokens[role]
+            for role, current_token in current_tokens.items()
+            if role in merged_tokens and current_token != merged_tokens[role]
+        }
+        session.profile.role_device_tokens = merged_tokens
+
+        if not token_replacements:
+            return
+
+        for record in session.profile.passthrough_records:
+            replacement = token_replacements.get(record.device_token)
+            if replacement is not None:
+                record.device_token = replacement
+
+        for unresolved in session.profile.unresolved_bindings:
+            replacement = token_replacements.get(unresolved.device_token)
+            if replacement is not None:
+                unresolved.device_token = replacement
+
+        if session.profile.source_document is not None:
+            self._remap_document_device_tokens(
+                session.profile.source_document,
+                token_replacements,
+                current_tokens,
+                merged_tokens,
+            )
+
     def _load_catalog(self):
         if self._catalog is None:
             self._catalog = self.catalog_repo.load()
@@ -136,8 +178,10 @@ class StarCitizenProfileRepository:
         record_id: str,
         imported_role_map: dict[str, str],
         catalog: Any,
-    ) -> BindingEdit | tuple[PassthroughRecord, Diagnostic | None, UnresolvedBinding | None]:
+    ) -> BindingEdit | tuple[PassthroughRecord, Diagnostic | None, UnresolvedBinding | None] | None:
         device_token, slot_token, modifier_token = self._split_input_tokens(rebind.input)
+        if slot_token == "":
+            return None
         trigger_mode = self._trigger_mode_from_rebind(rebind, modifier_token)
         trigger_token = self._trigger_token(trigger_mode, modifier_token)
         raw_payload = {
@@ -402,6 +446,64 @@ class StarCitizenProfileRepository:
                 ):
                     continue
                 action.rebind.append(new_rebind)
+
+    def _remap_document_device_tokens(
+        self,
+        document: ExportedActionMapsFile,
+        token_replacements: dict[str, str],
+        previous_role_tokens: dict[str, str],
+        current_role_tokens: dict[str, str],
+    ) -> None:
+        for action_map in document.actionmap:
+            for action in action_map.action:
+                for rebind in action.rebind or []:
+                    original_input = rebind.input or ""
+                    if "_" not in original_input:
+                        continue
+                    device_token, remainder = original_input.split("_", 1)
+                    replacement = token_replacements.get(device_token)
+                    if replacement is not None:
+                        rebind.input = f"{replacement}_{remainder}"
+
+        instance_replacements = {
+            previous_instance: current_instance
+            for role, previous_token in previous_role_tokens.items()
+            if role in current_role_tokens
+            if (previous_instance := self._device_instance(previous_token)) is not None
+            if (current_instance := self._device_instance(current_role_tokens[role])) is not None
+            if previous_instance != current_instance
+        }
+        if not instance_replacements:
+            return
+
+        for option in document.options:
+            if option.type != "joystick":
+                continue
+            replacement = instance_replacements.get(option.instance)
+            if replacement is not None:
+                option.instance = replacement
+
+        for customization in document.customizations:
+            for device_group in customization.devices:
+                for device_type, devices in device_group.items():
+                    if device_type.lower() != "joystick":
+                        continue
+                    for device in devices:
+                        replacement = instance_replacements.get(self._device_instance(f"js{device.instance}"))
+                        if replacement is not None:
+                            device.instance = str(replacement)
+
+    @staticmethod
+    def _device_instance(device_token: str | None) -> int | None:
+        if device_token is None:
+            return None
+        normalized = str(device_token).strip()
+        if not normalized.startswith("js"):
+            return None
+        try:
+            return int(normalized[2:])
+        except ValueError:
+            return None
 
     def _render_binding_input(
         self,

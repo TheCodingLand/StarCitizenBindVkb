@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import pygame
 from pydantic import BaseModel
@@ -23,20 +24,40 @@ class DeviceSnapshot:
 
 
 class PygameJoystickBackend:
+    def __init__(self) -> None:
+        self._joysticks: dict[int, Any] = {}
+
     def _ensure_initialized(self) -> None:
         if not pygame.get_init():
             pygame.init()
         if not pygame.joystick.get_init():
             pygame.joystick.init()
 
-    def list_devices(self) -> list[RawJoystickDevice]:
+    def _active_joysticks(self) -> dict[int, Any]:
         self._ensure_initialized()
 
-        devices: list[RawJoystickDevice] = []
+        active_joysticks: dict[int, Any] = {}
         joystick_count = pygame.joystick.get_count()
         for pygame_index in range(joystick_count):
-            joystick = pygame.joystick.Joystick(pygame_index)
-            joystick.init()
+            joystick = self._joysticks.get(pygame_index)
+            if joystick is None:
+                joystick = pygame.joystick.Joystick(pygame_index)
+
+            is_initialized = False
+            get_init = getattr(joystick, "get_init", None)
+            if callable(get_init):
+                is_initialized = bool(get_init())
+            if not is_initialized:
+                joystick.init()
+
+            active_joysticks[pygame_index] = joystick
+
+        self._joysticks = active_joysticks
+        return active_joysticks
+
+    def list_devices(self) -> list[RawJoystickDevice]:
+        devices: list[RawJoystickDevice] = []
+        for pygame_index, joystick in self._active_joysticks().items():
             devices.append(
                 RawJoystickDevice(
                     pygame_index=pygame_index,
@@ -53,10 +74,7 @@ class PygameJoystickBackend:
         pygame.event.pump()
 
         snapshots: dict[int, DeviceSnapshot] = {}
-        joystick_count = pygame.joystick.get_count()
-        for pygame_index in range(joystick_count):
-            joystick = pygame.joystick.Joystick(pygame_index)
-            joystick.init()
+        for pygame_index, joystick in self._active_joysticks().items():
             snapshots[pygame_index] = DeviceSnapshot(
                 buttons=tuple(bool(joystick.get_button(index)) for index in range(joystick.get_numbuttons())),
                 hats=tuple(joystick.get_hat(index) for index in range(joystick.get_numhats())),

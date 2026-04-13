@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from app.domain import BindingReference, PassthroughConflict, TriggerMode
 from app.models.joystick import JoystickConfig
@@ -36,6 +36,7 @@ class ProjectedBindingRow:
     modifier: bool
     hold: bool
     multitap: bool
+    binding_source: Literal["explicit", "default"] = "explicit"
 
 
 @dataclass(frozen=True)
@@ -63,5 +64,12 @@ class ProjectedSessionView:
     right_config: JoystickConfig = field(
         default_factory=lambda: JoystickConfig(side="right", configured_actions={})
     )
+    effective_left_config: JoystickConfig = field(
+        default_factory=lambda: JoystickConfig(side="left", configured_actions={})
+    )
+    effective_right_config: JoystickConfig = field(
+        default_factory=lambda: JoystickConfig(side="right", configured_actions={})
+    )
     binding_rows: list[ProjectedBindingRow] = field(default_factory=list)
+    effective_binding_rows: list[ProjectedBindingRow] = field(default_factory=list)
     diagnostics: list[UiDiagnosticRow] = field(default_factory=list)

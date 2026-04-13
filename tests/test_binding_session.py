@@ -117,6 +117,32 @@ def test_open_profile_captures_catalog_snapshot_used_for_session() -> None:
     assert session.catalog_snapshot.catalog.entry_for("v_emergency_exit", "seat_general") is not None
 
 
+def test_open_profile_can_override_export_device_tokens_and_instances() -> None:
+    repository = make_repository()
+    service = BindingSessionService(repository)
+
+    session = service.open_profile(
+        Path("tests/fixtures/profiles/layout_VKB_final_3_22_exported.xml"),
+        imported_role_map={"js1": "right_stick", "js2": "left_stick"},
+        export_role_tokens={"left_stick": "js1", "right_stick": "js2"},
+    )
+    exported = repository.export_profile(session)
+
+    assert session.profile.role_device_tokens == {"left_stick": "js1", "right_stick": "js2"}
+    assert exported.document is not None
+
+    seat_general = next(
+        action_map for action_map in exported.document.actionmap if action_map.name == "seat_general"
+    )
+    quantum_toggle = next(action for action in seat_general.action if action.name == "v_toggle_quantum_mode")
+    left_option = next(option for option in exported.document.options if option.type == "joystick" and "EVO L" in (option.product or ""))
+    right_option = next(option for option in exported.document.options if option.type == "joystick" and "EVO R" in (option.product or ""))
+
+    assert any(rebind.input == "js1_button20" for rebind in quantum_toggle.rebind)
+    assert left_option.instance == 1
+    assert right_option.instance == 2
+
+
 def test_bind_validation_uses_catalog_captured_at_session_open(monkeypatch: pytest.MonkeyPatch) -> None:
     service = BindingSessionService(make_repository())
 

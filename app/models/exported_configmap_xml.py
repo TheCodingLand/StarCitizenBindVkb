@@ -4,7 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, TypeVar, Union, cast
 
-from xmltodict import parse  # type: ignore[import-untyped]
+from xmltodict import parse, unparse  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.full_game_control_options import get_all_defined_game_actions
@@ -90,7 +90,7 @@ class ActionProfile(BaseModel):
     deviceoptions: List[DeviceOptions] = Field([], alias="deviceoptions")
     options: List[Option] = Field(..., alias="options")
     modifiers: Any = Field(..., alias="modifiers")
-    actionmap: List[ActionMap] = Field(..., alias="actionmap")
+    actionmap: List[ActionMap] = Field([], alias="actionmap")
 
 
 class ExportedActionMapsFile(BaseModel):
@@ -105,7 +105,7 @@ class ExportedActionMapsFile(BaseModel):
 
     options: List[Option] = Field([], alias="options")
     modifiers: Any = Field(..., alias="modifiers")
-    actionmap: List[ActionMap] = Field(...)
+    actionmap: List[ActionMap] = Field([])
 
 
 class ActionMapsFile(BaseModel):
@@ -144,6 +144,11 @@ class JoystickBind(BaseModel):
 
 def get_action_maps_object(action_maps_file_source: str) -> ExportedActionMapsFile:
     return ExportedActionMapsFile(**get_action_maps_file(action_maps_file_source))
+
+
+def serialize_action_maps_xml(document: ExportedActionMapsFile) -> str:
+    xml_payload = {"ActionMaps": [document.model_dump(exclude_none=True, by_alias=True)]}
+    return unparse(xml_payload, pretty=True, indent=" ", short_empty_elements=True)
 
 
 if __name__ == "__main__":

@@ -67,10 +67,13 @@ def project_session_view(
     session: BindingSession,
     *,
     joystick_buttons_by_slot: Mapping[str, JoyStickButton],
+    default_session: BindingSession | None = None,
 ) -> ProjectedSessionView:
     projection = ProjectedSessionView(
         left_config=JoystickConfig(side="left", configured_actions={}),
         right_config=JoystickConfig(side="right", configured_actions={}),
+        effective_left_config=JoystickConfig(side="left", configured_actions={}),
+        effective_right_config=JoystickConfig(side="right", configured_actions={}),
     )
     catalog = (
         session.catalog_snapshot.catalog
@@ -78,50 +81,119 @@ def project_session_view(
         else GameCatalog(version=GameCatalogVersion(key="unknown"))
     )
 
+    valid_rows, projection_diagnostics = _collect_valid_rows(
+        bindings=session.profile.bindings,
+        catalog=catalog,
+        role_device_tokens=session.profile.role_device_tokens,
+        joystick_buttons_by_slot=joystick_buttons_by_slot,
+        binding_source="explicit",
+        include_diagnostics=True,
+    )
+    projection.diagnostics.extend(projection_diagnostics)
+
+    selected_rows, overflow_diagnostics = _select_projected_rows(valid_rows, include_overflow_diagnostics=True)
+    projection.diagnostics.extend(overflow_diagnostics)
+    _apply_selected_rows(
+        selected_rows,
+        target_left_config=projection.left_config,
+        target_right_config=projection.right_config,
+        target_rows=projection.binding_rows,
+    )
+
+    effective_selected_rows = selected_rows
+    if default_session is not None:
+        default_catalog = (
+            default_session.catalog_snapshot.catalog
+            if default_session.catalog_snapshot is not None
+            else catalog
+        )
+        default_rows, _ = _collect_valid_rows(
+            bindings=default_session.profile.bindings,
+            catalog=default_catalog,
+            role_device_tokens=default_session.profile.role_device_tokens,
+            joystick_buttons_by_slot=joystick_buttons_by_slot,
+            binding_source="default",
+            include_diagnostics=False,
+        )
+        explicit_slot_keys = {_slot_trigger_key(row) for _, row, _ in selected_rows}
+        effective_candidates = [
+            row for row in default_rows if _slot_trigger_key(row[1]) not in explicit_slot_keys
+        ]
+        effective_candidates.extend(selected_rows)
+        effective_selected_rows, _ = _select_projected_rows(
+            effective_candidates,
+            include_overflow_diagnostics=False,
+        )
+
+    _apply_selected_rows(
+        effective_selected_rows,
+        target_left_config=projection.effective_left_config,
+        target_right_config=projection.effective_right_config,
+        target_rows=projection.effective_binding_rows,
+    )
+
+    return projection
+
+
+def _collect_valid_rows(
+    *,
+    bindings: list[BindingEdit],
+    catalog: GameCatalog,
+    role_device_tokens: Mapping[str, str],
+    joystick_buttons_by_slot: Mapping[str, JoyStickButton],
+    binding_source: str,
+    include_diagnostics: bool,
+) -> tuple[list[tuple[tuple[str, ...], ProjectedBindingRow, JoyAction]], list[UiDiagnosticRow]]:
     valid_rows: list[tuple[tuple[str, ...], ProjectedBindingRow, JoyAction]] = []
-    for binding in session.profile.bindings:
+    diagnostics: list[UiDiagnosticRow] = []
+
+    for binding in bindings:
         side = ROLE_TO_SIDE.get(binding.role)
         if side is None:
-            projection.diagnostics.append(
-                UiDiagnosticRow(
-                    kind="unsupported-role",
-                    action=binding.action_name,
-                    detail=f"Role '{binding.role}' cannot be rendered in the joystick UI.",
-                    side="unknown",
-                    record_id=binding.source_record_id,
+            if include_diagnostics:
+                diagnostics.append(
+                    UiDiagnosticRow(
+                        kind="unsupported-role",
+                        action=binding.action_name,
+                        detail=f"Role '{binding.role}' cannot be rendered in the joystick UI.",
+                        side="unknown",
+                        record_id=binding.source_record_id,
+                    )
                 )
-            )
             continue
 
         entry = catalog.entry_for(binding.action_name, binding.source_actionmap_name)
         if entry is None:
-            projection.diagnostics.append(_metadata_diagnostic(binding, catalog, side))
+            if include_diagnostics:
+                diagnostics.append(_metadata_diagnostic(binding, catalog, side))
             continue
 
-        device_token = session.profile.role_device_tokens.get(binding.role)
+        device_token = role_device_tokens.get(binding.role)
         if not device_token:
-            projection.diagnostics.append(
-                UiDiagnosticRow(
-                    kind="unresolved-device",
-                    action=binding.action_name,
-                    detail=f"Role '{binding.role}' has no imported device token for UI projection.",
-                    side=side,
-                    record_id=binding.source_record_id,
+            if include_diagnostics:
+                diagnostics.append(
+                    UiDiagnosticRow(
+                        kind="unresolved-device",
+                        action=binding.action_name,
+                        detail=f"Role '{binding.role}' has no imported device token for UI projection.",
+                        side=side,
+                        record_id=binding.source_record_id,
+                    )
                 )
-            )
             continue
 
         button = joystick_buttons_by_slot.get(binding.slot_id)
         if button is None:
-            projection.diagnostics.append(
-                UiDiagnosticRow(
-                    kind="unrenderable-slot",
-                    action=binding.action_name,
-                    detail=f"Slot '{binding.slot_id}' cannot be rendered in the current joystick layout.",
-                    side=side,
-                    record_id=binding.source_record_id,
+            if include_diagnostics:
+                diagnostics.append(
+                    UiDiagnosticRow(
+                        kind="unrenderable-slot",
+                        action=binding.action_name,
+                        detail=f"Slot '{binding.slot_id}' cannot be rendered in the current joystick layout.",
+                        side=side,
+                        record_id=binding.source_record_id,
+                    )
                 )
-            )
             continue
 
         row = ProjectedBindingRow(
@@ -143,6 +215,7 @@ def project_session_view(
             modifier=binding.trigger_mode is TriggerMode.MODIFIER,
             hold=binding.trigger_mode is TriggerMode.HOLD,
             multitap=binding.trigger_mode is TriggerMode.MULTITAP,
+            binding_source="default" if binding_source == "default" else "explicit",
         )
         action = JoyAction(
             name=binding.action_name,
@@ -156,18 +229,29 @@ def project_session_view(
         )
         valid_rows.append((_binding_snapshot_key(binding), row, action))
 
+    return valid_rows, diagnostics
+
+
+def _select_projected_rows(
+    valid_rows: list[tuple[tuple[str, ...], ProjectedBindingRow, JoyAction]],
+    *,
+    include_overflow_diagnostics: bool,
+) -> tuple[list[tuple[tuple[str, ...], ProjectedBindingRow, JoyAction]], list[UiDiagnosticRow]]:
     grouped_rows: dict[tuple[str, str, TriggerMode], list[tuple[tuple[str, ...], ProjectedBindingRow, JoyAction]]] = defaultdict(list)
     for item in valid_rows:
         _, row, _ = item
         grouped_rows[(row.side, row.action_name, row.binding_ref.trigger_mode)].append(item)
 
     selected_rows: list[tuple[tuple[str, ...], ProjectedBindingRow, JoyAction]] = []
+    diagnostics: list[UiDiagnosticRow] = []
     for collisions in grouped_rows.values():
-        collisions.sort(key=lambda item: item[0])
+        collisions.sort(key=lambda item: (_binding_source_priority(item[1]), item[0]))
         winner = collisions[0]
         selected_rows.append(winner)
+        if not include_overflow_diagnostics:
+            continue
         for _, row, overflow_action in collisions[1:]:
-            projection.diagnostics.append(
+            diagnostics.append(
                 UiDiagnosticRow(
                     kind="projection-overflow",
                     action=row.action_name,
@@ -179,14 +263,34 @@ def project_session_view(
                     record_id=row.binding_ref.source_record_id,
                 )
             )
+    selected_rows.sort(key=lambda item: (_binding_source_priority(item[1]), item[0]))
+    return selected_rows, diagnostics
 
-    selected_rows.sort(key=lambda item: item[0])
-    for _, row, action in selected_rows:
-        target_config = projection.left_config if row.side == "left" else projection.right_config
+
+def _apply_selected_rows(
+    selected_rows: list[tuple[tuple[str, ...], ProjectedBindingRow, JoyAction]],
+    *,
+    target_left_config: JoystickConfig,
+    target_right_config: JoystickConfig,
+    target_rows: list[ProjectedBindingRow],
+) -> None:
+    for _, row, action in sorted(selected_rows, key=lambda item: (_binding_source_priority(item[1]), item[0])):
+        target_config = target_left_config if row.side == "left" else target_right_config
         target_config.set_mapping(action)
-        projection.binding_rows.append(row)
+        target_rows.append(row)
 
-    return projection
+
+def _slot_trigger_key(row: ProjectedBindingRow) -> tuple[str, str, str, str]:
+    return (
+        row.side,
+        row.slot_id,
+        row.binding_ref.trigger_mode.value,
+        row.binding_ref.modifier_token or "",
+    )
+
+
+def _binding_source_priority(row: ProjectedBindingRow) -> int:
+    return 0 if row.binding_source == "explicit" else 1
 
 
 def _metadata_diagnostic(

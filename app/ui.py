@@ -1,4 +1,5 @@
 # main.py
+from collections import defaultdict
 from pathlib import Path
 import sys
 import json
@@ -19,6 +20,8 @@ from PyQt6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
+    QLineEdit,
+    QCheckBox,
 )
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QCloseEvent, QIcon, QPixmap
@@ -56,6 +59,7 @@ from app.services import (
     BindingPlannerContext,
     JoystickActivityEvent,
     JoystickMonitorService,
+    ProjectedBindingRow,
     SessionCatalogEntry,
     UiCommandOutcome,
     UiSessionController,
@@ -67,9 +71,9 @@ from app.models.exported_configmap_xml import (
     ActionMap,
     Rebind,
     get_action_maps_object,
+    serialize_action_maps_xml,
 )
-from app.globals import APP_PATH, get_installation
-import xmltodict  # type: ignore[import-untyped]
+from app.globals import APP_PATH, get_installation, localization_file
 
 # Set up logging
 setup_logging()
@@ -91,10 +95,10 @@ test_output_file = APP_PATH / "data/test_output.xml"
 
 
 def unparse(data: ExportedActionMapsFile) -> str:
-    xml_data = {"ActionMaps": [data.model_dump(exclude_none=True, by_alias=True)]}
+    xml_text = serialize_action_maps_xml(data)
     with open(test_output_file, "w") as f:
-        f.write(xmltodict.unparse(xml_data, pretty=True, indent=" ", short_empty_elements=True))
-    return xmltodict.unparse(xml_data)
+        f.write(xml_text)
+    return xml_text
 
 
 class ControlMapperApp(QMainWindow):
@@ -152,6 +156,9 @@ class ControlMapperApp(QMainWindow):
             button.sc_config_name: button for button in joystick_buttons.values()
         }
         self.binding_validation_report: Optional[ValidationReport] = None
+        self._visible_button_actions: Dict[str, List[str]] = {}
+        self._search_match_labels: set[str] = set()
+        self._button_display_cache_valid: bool = False
 
         self.previous_selected_button: Optional[QPushButton] = None
         self.button_refs: Dict[str, QPushButton] = {}
@@ -267,11 +274,23 @@ class ControlMapperApp(QMainWindow):
         )
         self.action_panel_layout.addWidget(self.selected_button_label_widget)
 
+        search_controls_layout = QHBoxLayout()
+        self.action_search_line_edit = QLineEdit(self.action_panel)
+        self.action_search_line_edit.setPlaceholderText("Find configured action on this joystick...")
+        self.action_search_line_edit.textChanged.connect(self._handle_action_search_text_changed)
+        search_controls_layout.addWidget(self.action_search_line_edit)
+
+        self.show_default_bindings_checkbox = QCheckBox("Show Default Bindings", self.action_panel)
+        self.show_default_bindings_checkbox.setChecked(True)
+        self.show_default_bindings_checkbox.toggled.connect(self._handle_show_default_bindings_toggled)
+        search_controls_layout.addWidget(self.show_default_bindings_checkbox)
+        self.action_panel_layout.addLayout(search_controls_layout)
+
         # Create a QTableWidget to display actions
         self.actions_table_widget: QTableWidget = QTableWidget(self.action_panel)
-        self.actions_table_widget.setColumnCount(4)
+        self.actions_table_widget.setColumnCount(6)
         self.actions_table_widget.setHorizontalHeaderLabels(
-            ["Action Name", "Modifier", "Multitap", "Hold"]
+            ["Button", "Action Name", "Source", "Modifier", "Multitap", "Hold"]
         )
         actions_header = self.actions_table_widget.horizontalHeader()
         if actions_header is not None:
@@ -428,9 +447,26 @@ class ControlMapperApp(QMainWindow):
             layout_repo = DeviceLayoutRepository()
             profile_repo = StarCitizenProfileRepository(catalog_repo, layout_repo)
             session_service = BindingSessionService(profile_repo)
+
+            def default_session_resolver(export_role_tokens: Dict[str, str], catalog: Any):
+                try:
+                    default_session = profile_repo.load_profile(
+                        DEFAULT_CONTROL_MAP_FILENAME,
+                        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+                        catalog=copy.deepcopy(catalog) if catalog is not None else None,
+                    )
+                    if export_role_tokens:
+                        profile_repo.align_session_device_tokens(default_session, dict(export_role_tokens))
+                    return default_session
+                except Exception:
+                    logger.exception("Failed to load bundled default profile for UI overlay")
+                    return None
+
             return UiSessionController(
                 session_service=session_service,
                 imported_role_resolver=self._resolve_imported_role_map,
+                export_role_token_resolver=self._resolve_export_role_tokens,
+                default_session_resolver=default_session_resolver,
                 joystick_buttons_by_slot=self.joystick_buttons_by_slot,
                 logger=logger,
             )
@@ -481,6 +517,14 @@ class ControlMapperApp(QMainWindow):
 
         return imported_role_map
 
+    def _resolve_export_role_tokens(self) -> Dict[str, str]:
+        role_tokens: Dict[str, str] = {}
+        if self.config.joystick_instance_left > 0:
+            role_tokens["left_stick"] = f"js{self.config.joystick_instance_left}"
+        if self.config.joystick_instance_right > 0:
+            role_tokens["right_stick"] = f"js{self.config.joystick_instance_right}"
+        return role_tokens
+
     def _reset_to_safe_empty_state(self) -> None:
         self.control_map = None
         self.control_map_template = None
@@ -494,6 +538,7 @@ class ControlMapperApp(QMainWindow):
         self.joystick_sides = {}
         self.selected_button_label = None
         self.previous_selected_button = None
+        self._invalidate_button_display_cache()
         self.actions_table_widget.setRowCount(0)
         self.selected_button_label_widget.setText("Selected Button: None")
         self.update_unsupported_actions_table()
@@ -671,7 +716,7 @@ class ControlMapperApp(QMainWindow):
             return [
                 {
                     "kind": row.kind,
-                    "action": row.action,
+                    "action": self._localized_catalog_action_name(row.action),
                     "detail": row.detail,
                     "side": row.side,
                 }
@@ -709,10 +754,22 @@ class ControlMapperApp(QMainWindow):
         self.blocked_conflicts_label.setStyleSheet("color: #cc3300; font-weight: bold;")
         self.blocked_conflicts_summary.setText(
             "\n".join(
-                f"{conflict.action_name}: {conflict.device_token}/{conflict.slot_token} [{conflict.trigger_token}]"
+                (
+                    f"{self._localized_catalog_action_name(conflict.action_name)}: "
+                    f"{conflict.device_token}/{conflict.slot_token} [{conflict.trigger_token}]"
+                )
                 for conflict in self.blocked_conflicts
             )
         )
+
+    def _localized_catalog_action_name(self, action_name: str) -> str:
+        if not action_name or not self._has_active_session_controller():
+            return action_name
+
+        for entry in self.session_controller.catalog_entries:
+            if entry.action_name == action_name:
+                return localization_file.get_localization_string(entry.display_label or action_name)
+        return action_name
 
     def update_validation_status_indicator(self, report: Optional[ValidationReport]) -> None:
         self.binding_validation_report = report
@@ -989,9 +1046,74 @@ class ControlMapperApp(QMainWindow):
             )
 
     def update_joystick_buttons(self) -> None:
+        self._rebuild_button_display_cache()
         for label, button in self.button_refs.items():
             self.update_button_label(label)
             self.update_button_geometry(label, button)
+
+    def _invalidate_button_display_cache(self) -> None:
+        self._visible_button_actions = {}
+        self._search_match_labels = set()
+        self._button_display_cache_valid = False
+
+    def _ensure_button_display_cache(self) -> None:
+        if self._button_display_cache_valid:
+            return
+        self._rebuild_button_display_cache()
+
+    def _rebuild_button_display_cache(self) -> None:
+        visible_button_actions: dict[str, list[str]] = defaultdict(list)
+        search_match_labels: set[str] = set()
+        search_text = self.action_search_line_edit.text().strip().lower()
+
+        if self._has_active_session_controller():
+            has_controller_labels = False
+            for row in self._display_binding_rows_from_controller():
+                if row.side != self.current_joystick:
+                    continue
+                if self._projected_row_matches_current_trigger(row):
+                    has_controller_labels = True
+                    visible_button_actions[row.button_name].append(self._localized_projected_row_label(row))
+                if search_text and self._projected_row_matches_search(row, search_text):
+                    search_match_labels.add(row.button_name)
+            if not has_controller_labels:
+                for action in self.current_config.configured_actions.values():
+                    if (
+                        action.modifier == self.modifier_enabled
+                        and action.multitap == self.multitap_enabled
+                        and action.hold == self.hold_enabled
+                    ):
+                        visible_button_actions[action.button.name].append(action.name)
+                    if search_text and (
+                        search_text in action.name.lower() or search_text in action.button.name.lower()
+                    ):
+                        search_match_labels.add(action.button.name)
+        else:
+            for action in self.current_config.configured_actions.values():
+                if (
+                    action.modifier == self.modifier_enabled
+                    and action.multitap == self.multitap_enabled
+                    and action.hold == self.hold_enabled
+                ):
+                    visible_button_actions[action.button.name].append(action.name)
+                if search_text and (
+                    search_text in action.name.lower() or search_text in action.button.name.lower()
+                ):
+                    search_match_labels.add(action.button.name)
+
+        self._visible_button_actions = {
+            button_name: list(dict.fromkeys(action_names))
+            for button_name, action_names in visible_button_actions.items()
+        }
+        self._search_match_labels = search_match_labels
+        self._button_display_cache_valid = True
+
+    def _projected_row_matches_current_trigger(self, row: ProjectedBindingRow) -> bool:
+        return (
+            row.modifier == self.modifier_enabled
+            and row.multitap == self.multitap_enabled
+            and row.hold == self.hold_enabled
+        )
 
     def update_button_geometry(self, label: str, button: QPushButton) -> None:
         geometry: QRect = QRect(
@@ -1000,7 +1122,8 @@ class ControlMapperApp(QMainWindow):
             width,
             height,
         )
-        button.setGeometry(geometry)
+        if button.geometry() != geometry:
+            button.setGeometry(geometry)
 
     def create_mappable_button(self, label: str, geometry: QRect) -> None:
         button: QPushButton = QPushButton(label, self.background_label)
@@ -1019,6 +1142,7 @@ class ControlMapperApp(QMainWindow):
         """
         Display the action panel with all mappings for the selected button.
         """
+        self._ensure_button_display_cache()
         self.apply_button_style(button, action=self.has_action(label), selected=True)
 
         if self.previous_selected_button and self.previous_selected_button != button:
@@ -1032,67 +1156,144 @@ class ControlMapperApp(QMainWindow):
 
         self.previous_selected_button = button
         self.selected_button_label = label
-        self.selected_button_label_widget.setText(f"Selected Button: {label}")
+        self.refresh_action_panel()
 
-        # Clear the existing table
+    def refresh_action_panel(self) -> None:
+        """Synchronise the action panel with the currently selected button/state."""
+        rows = self._current_action_panel_rows()
+        self._render_action_panel_rows(rows)
+
+    def _handle_action_search_text_changed(self, _text: str) -> None:
+        self.update_joystick_buttons()
+        self.refresh_action_panel()
+
+    def _handle_show_default_bindings_toggled(self, _checked: bool) -> None:
+        if self._has_active_session_controller():
+            self._apply_controller_projection()
+            return
+        self.update_joystick_buttons()
+        self.refresh_action_panel()
+
+    def _current_action_panel_rows(self) -> List[Dict[str, Any]]:
+        if self._has_active_session_controller():
+            return self._action_panel_rows_from_controller()
+        return self._action_panel_rows_from_current_config()
+
+    def _action_panel_rows_from_controller(self) -> List[Dict[str, Any]]:
+        search_text = self.action_search_line_edit.text().strip().lower()
+        rows = [
+            row
+            for row in self._display_binding_rows_from_controller()
+            if row.side == self.current_joystick
+        ]
+        if search_text:
+            rows = [row for row in rows if self._projected_row_matches_search(row, search_text)]
+        elif self.selected_button_label:
+            rows = [row for row in rows if row.button_name == self.selected_button_label]
+        else:
+            rows = []
+
+        rows.sort(
+            key=lambda row: (
+                row.button_name,
+                self._localized_projected_row_label(row).casefold(),
+                row.action_name,
+            )
+        )
+        return [
+            {
+                "button": row.button_name,
+                "action": self._localized_projected_row_label(row),
+                "source": "Default" if row.binding_source == "default" else "Explicit",
+                "modifier": row.modifier,
+                "multitap": row.multitap,
+                "hold": row.hold,
+                "payload": {
+                    "binding_ref": row.binding_ref,
+                    "source": row.binding_source,
+                },
+            }
+            for row in rows
+        ]
+
+    def _action_panel_rows_from_current_config(self) -> List[Dict[str, Any]]:
+        search_text = self.action_search_line_edit.text().strip().lower()
+        if search_text:
+            actions = [
+                action
+                for action in self.current_config.configured_actions.values()
+                if search_text in action.name.lower() or search_text in action.button.name.lower()
+            ]
+        elif self.selected_button_label:
+            actions = list(self.current_config.get_all_actions_for_button_no_filter(self.selected_button_label).values())
+        else:
+            actions = []
+
+        actions.sort(key=lambda action: (action.button.name, action.name.casefold()))
+        return [
+            {
+                "button": action.button.name,
+                "action": action.name,
+                "source": "Explicit",
+                "modifier": action.modifier,
+                "multitap": action.multitap,
+                "hold": action.hold,
+                "payload": action.key,
+            }
+            for action in actions
+        ]
+
+    def _render_action_panel_rows(self, rows: List[Dict[str, Any]]) -> None:
+        search_text = self.action_search_line_edit.text().strip()
+        if search_text:
+            count_label = "match" if len(rows) == 1 else "matches"
+            self.selected_button_label_widget.setText(f"Search Results: {len(rows)} {count_label}")
+        elif self.selected_button_label:
+            self.selected_button_label_widget.setText(f"Selected Button: {self.selected_button_label}")
+        else:
+            self.selected_button_label_widget.setText("Selected Button: None")
+
         self.actions_table_widget.setRowCount(0)
-
-        # Get all actions for the button without filtering
-        all_actions = self.current_config.get_all_actions_for_button_no_filter(label)
-
-        # Populate the table widget
-        for key, joy_action in all_actions.items():
+        for row_data in rows:
             row_position = self.actions_table_widget.rowCount()
             self.actions_table_widget.insertRow(row_position)
 
-            # Create table items
-            action_name_item = QTableWidgetItem(joy_action.name)
+            button_item = QTableWidgetItem(row_data["button"])
+            action_name_item = QTableWidgetItem(row_data["action"])
+            source_item = QTableWidgetItem(row_data["source"])
             modifier_item = QTableWidgetItem()
             multitap_item = QTableWidgetItem()
             hold_item = QTableWidgetItem()
 
-            # Use checkmarks or color codes to represent True/False
-            modifier_item.setText("")
-            multitap_item.setText("")
-            hold_item.setText("")
-            if joy_action.modifier:
+            if row_data["modifier"]:
                 modifier_item.setBackground(QtGui.QColor("lightgreen"))
-            if joy_action.multitap:
+            if row_data["multitap"]:
                 multitap_item.setBackground(QtGui.QColor("lightblue"))
-            if joy_action.hold:
+            if row_data["hold"]:
                 hold_item.setBackground(QtGui.QColor("lightcoral"))
+            if row_data["source"] == "Default":
+                source_item.setForeground(QtGui.QColor("#666666"))
 
-            # Store the key in the first item's data
-            action_name_item.setData(
-                Qt.ItemDataRole.UserRole,
-                self._projected_binding_reference_for_action(label, joy_action) or key,
-            )
+            action_name_item.setData(Qt.ItemDataRole.UserRole, row_data["payload"])
 
-            # Add items to the table
-            self.actions_table_widget.setItem(row_position, 0, action_name_item)
-            self.actions_table_widget.setItem(row_position, 1, modifier_item)
-            self.actions_table_widget.setItem(row_position, 2, multitap_item)
-            self.actions_table_widget.setItem(row_position, 3, hold_item)
+            self.actions_table_widget.setItem(row_position, 0, button_item)
+            self.actions_table_widget.setItem(row_position, 1, action_name_item)
+            self.actions_table_widget.setItem(row_position, 2, source_item)
+            self.actions_table_widget.setItem(row_position, 3, modifier_item)
+            self.actions_table_widget.setItem(row_position, 4, multitap_item)
+            self.actions_table_widget.setItem(row_position, 5, hold_item)
 
-        # Adjust column widths
-        self.actions_table_widget.resizeColumnsToContents()
+    def _projected_row_matches_search(self, row: ProjectedBindingRow, search_text: str) -> bool:
+        localized_label = self._localized_projected_row_label(row).lower()
+        return (
+            search_text in row.action_name.lower()
+            or search_text in localized_label
+            or search_text in row.display_label.lower()
+            or search_text in row.button_name.lower()
+        )
 
-    def refresh_action_panel(self) -> None:
-        """Synchronise the action panel with the currently selected button/state."""
-        if not self.selected_button_label:
-            self.actions_table_widget.setRowCount(0)
-            self.selected_button_label_widget.setText("Selected Button: None")
-            return
-
-        button = self.button_refs.get(self.selected_button_label)
-        if button is None:
-            self.actions_table_widget.setRowCount(0)
-            self.selected_button_label_widget.setText("Selected Button: None")
-            self.selected_button_label = None
-            self.previous_selected_button = None
-            return
-
-        self.show_action_panel(button, self.selected_button_label)
+    def _localized_projected_row_label(self, row: ProjectedBindingRow) -> str:
+        return localization_file.get_localization_string(row.display_label or row.action_name)
 
     def add_action_to_button(self) -> None:
         """
@@ -1148,6 +1349,7 @@ class ControlMapperApp(QMainWindow):
                 )
                 self.unbind_action(selected_entry.action_name)
                 self.current_config.set_mapping(joy_action)
+                self._invalidate_button_display_cache()
                 self.update_button_label(self.selected_button_label)
                 self.show_action_panel(
                     self.button_refs[self.selected_button_label], self.selected_button_label
@@ -1272,17 +1474,24 @@ class ControlMapperApp(QMainWindow):
 
         for selected_range in selected_ranges:
             for row in range(selected_range.topRow(), selected_range.bottomRow() + 1):
-                key_item = self.actions_table_widget.item(
-                    row, 0
-                )  # Key is stored in the first column
+                key_item = self.actions_table_widget.item(row, 1)
                 if key_item:
                     key = key_item.data(Qt.ItemDataRole.UserRole)
-                    if isinstance(key, BindingReference) and self._has_active_session_controller():
-                        outcome = self.session_controller.remove_binding(key)
+                    if isinstance(key, dict) and key.get("source") == "default":
+                        QMessageBox.warning(
+                            self,
+                            "Read-only Default Binding",
+                            "Inherited default bindings are read-only. Add or replace an action to create an explicit override.",
+                        )
+                        return
+                    binding_ref = key.get("binding_ref") if isinstance(key, dict) else key
+                    if isinstance(binding_ref, BindingReference) and self._has_active_session_controller():
+                        outcome = self.session_controller.remove_binding(binding_ref)
                         if outcome in {UiCommandOutcome.MUTATED, UiCommandOutcome.REJECTED, UiCommandOutcome.NOOP}:
                             self._apply_controller_session_state()
                         return
                     self.current_config.remove_mapping_by_key(key)
+                    self._invalidate_button_display_cache()
             # Remove the rows in reverse order to prevent shifting issues
             for row in reversed(range(selected_range.topRow(), selected_range.bottomRow() + 1)):
                 self.actions_table_widget.removeRow(row)
@@ -1329,13 +1538,29 @@ class ControlMapperApp(QMainWindow):
     def _apply_controller_projection(self) -> None:
         if self.session_controller is None:
             return
-        self.left_joystick_config = self.session_controller.left_config
-        self.right_joystick_config = self.session_controller.right_config
+        self.left_joystick_config, self.right_joystick_config = self._display_configs_from_controller()
         self.current_config = (
             self.left_joystick_config if self.current_joystick == "left" else self.right_joystick_config
         )
         self.update_joystick_buttons()
         self.refresh_action_panel()
+
+    def _display_configs_from_controller(self) -> tuple[JoystickConfig, JoystickConfig]:
+        assert self.session_controller is not None
+        if self.show_default_bindings_checkbox.isChecked():
+            return (
+                getattr(self.session_controller, "effective_left_config", self.session_controller.left_config),
+                getattr(self.session_controller, "effective_right_config", self.session_controller.right_config),
+            )
+        return self.session_controller.left_config, self.session_controller.right_config
+
+    def _display_binding_rows_from_controller(self) -> List[ProjectedBindingRow]:
+        assert self.session_controller is not None
+        if self.show_default_bindings_checkbox.isChecked():
+            return list(
+                getattr(self.session_controller, "effective_binding_rows", self.session_controller.binding_rows)
+            )
+        return list(self.session_controller.binding_rows)
 
     def _projected_binding_reference_for_action(
         self,
@@ -1364,37 +1589,37 @@ class ControlMapperApp(QMainWindow):
         return None
 
     def has_action(self, label: str) -> bool:
-        actions_dict = self.current_config.get_actions_for_button(
-            label,
-            self.modifier_enabled,
-            multitap=self.multitap_enabled,
-            hold=self.hold_enabled,
-        )
-        return bool(actions_dict)
+        self._ensure_button_display_cache()
+        return bool(self._visible_button_actions.get(label))
 
     def update_button_label(self, label: str) -> None:
+        self._ensure_button_display_cache()
         button: QPushButton = self.button_refs[label]
-        has_action = self.has_action(label)
-        if has_action:
-            actions_dict = self.current_config.get_actions_for_button(
-                label,
-                self.modifier_enabled,
-                multitap=self.multitap_enabled,
-                hold=self.hold_enabled,
-            )
-            button.setText("\n".join(action.name for action in actions_dict.values()))
-        else:
-            button.setText(label)
+        action_names = self._visible_button_actions.get(label, [])
+        has_action = bool(action_names)
+        button_text = "\n".join(action_names) if has_action else label
+        if button.text() != button_text:
+            button.setText(button_text)
+        search_match = self._button_has_search_match(label)
         if self.selected_button_label == label:
-            self.apply_button_style(button, action=has_action, selected=True)
+            self.apply_button_style(button, action=has_action, selected=True, search_match=search_match)
         else:
-            self.apply_button_style(button, action=has_action)
+            self.apply_button_style(button, action=has_action, search_match=search_match)
 
-    def apply_button_style(self, button: QPushButton, action: bool, selected: bool = False) -> None:
+    def _button_has_search_match(self, label: str) -> bool:
+        self._ensure_button_display_cache()
+        return label in self._search_match_labels
+
+    def apply_button_style(
+        self,
+        button: QPushButton,
+        action: bool,
+        selected: bool = False,
+        search_match: bool = False,
+    ) -> None:
         if selected:
-            # Apply neon purple highlight
-
-            button.setStyleSheet(
+            style_key = "selected"
+            style_sheet = (
                 """
                 QPushButton {
                     background-color: #9B30FF;
@@ -1403,8 +1628,20 @@ class ControlMapperApp(QMainWindow):
                 }
                 """
             )
+        elif search_match:
+            style_key = "search-match"
+            style_sheet = (
+                """
+                QPushButton {
+                    background-color: rgba(255, 214, 102, 110);
+                    color: rgba(0, 0, 0, 255);
+                    border: 2px solid rgba(255, 140, 0, 220);
+                }
+                """
+            )
         elif action:
-            button.setStyleSheet(
+            style_key = "action"
+            style_sheet = (
                 """
                 QPushButton {
                     background-color: rgba(150, 255, 150, 100);
@@ -1414,7 +1651,8 @@ class ControlMapperApp(QMainWindow):
             """
             )
         else:
-            button.setStyleSheet(
+            style_key = "default"
+            style_sheet = (
                 """
                 QPushButton {
                     background-color: rgba(255, 255, 255, 255);
@@ -1428,6 +1666,12 @@ class ControlMapperApp(QMainWindow):
                 }
             """
             )
+
+        if button.property("display_style_key") == style_key:
+            return
+
+        button.setProperty("display_style_key", style_key)
+        button.setStyleSheet(style_sheet)
 
     def save_config(self) -> None:
         try:

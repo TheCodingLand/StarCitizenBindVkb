@@ -31,9 +31,16 @@ class BindingSessionService:
         self._session: BindingSession | None = None
         self._baseline_profile: ControlProfile | None = None
 
-    def open_profile(self, path: Path, imported_role_map: dict[str, str]) -> BindingSession:
+    def open_profile(
+        self,
+        path: Path,
+        imported_role_map: dict[str, str],
+        export_role_tokens: dict[str, str] | None = None,
+    ) -> BindingSession:
         catalog = deepcopy(self.profile_repository.catalog_repo.load())
         self._session = self.profile_repository.load_profile(path, imported_role_map, catalog=catalog)
+        if export_role_tokens:
+            self.profile_repository.align_session_device_tokens(self._session, export_role_tokens)
         self._session.catalog_snapshot = SessionCatalogSnapshot(version=catalog.version, catalog=catalog)
         self._baseline_profile = self._to_control_profile(self._session)
         return self._session

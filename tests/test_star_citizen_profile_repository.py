@@ -4,9 +4,54 @@ from app.domain import BindingEdit, GameCatalog, GameCatalogVersion, TriggerMode
 from app.io import ActionCatalogRepository, DeviceLayoutRepository, StarCitizenProfileRepository
 from app.io.repositories import ActionMapsRepository as CompatActionMapsRepository
 from app.io.repositories import DeviceLayoutRepository as CompatLayoutRepository
+from app.models.exported_configmap_xml import get_action_maps_object, serialize_action_maps_xml
 
 
 UNKNOWNS_FIXTURE = Path("tests/fixtures/profiles/profile_with_unknowns.xml")
+
+
+MINIMAL_EMPTY_EXPORT = """<ActionMaps version="1" optionsVersion="2" rebindVersion="2" profileName="4_71">
+ <CustomisationUIHeader label="4_71" description="" image="">
+  <devices>
+   <keyboard instance="1"/>
+   <mouse instance="1"/>
+   <joystick instance="1"/>
+   <joystick instance="2"/>
+  </devices>
+  <categories />
+ </CustomisationUIHeader>
+ <options type="keyboard" instance="1" Product="Clavier  {6F1D2B61-D5A0-11CF-BFC7-444553540000}"/>
+ <options type="joystick" instance="1" Product=" VKBsim Gladiator EVO OT L    {3201231D-0000-0000-0000-504944564944}"/>
+ <options type="joystick" instance="2" Product=" VKBsim Gladiator EVO R    {0200231D-0000-0000-0000-504944564944}"/>
+ <modifiers />
+</ActionMaps>
+"""
+
+
+PLACEHOLDER_REBINDS_EXPORT = """<ActionMaps version="1" optionsVersion="2" rebindVersion="2" profileName="placeholders_only">
+ <CustomisationUIHeader label="placeholders_only" description="" image="">
+  <devices>
+   <keyboard instance="1"/>
+   <mouse instance="1"/>
+   <joystick instance="1"/>
+   <joystick instance="2"/>
+  </devices>
+  <categories />
+ </CustomisationUIHeader>
+ <options type="keyboard" instance="1" Product="Clavier  {6F1D2B61-D5A0-11CF-BFC7-444553540000}"/>
+ <options type="joystick" instance="1" Product=" VKBsim Gladiator EVO OT L    {3201231D-0000-0000-0000-504944564944}"/>
+ <options type="joystick" instance="2" Product=" VKBsim Gladiator EVO R    {0200231D-0000-0000-0000-504944564944}"/>
+ <modifiers />
+ <actionmap name="spaceship_general">
+  <action name="v_toggle_all_doors">
+   <rebind input="js2_ "/>
+  </action>
+  <action name="v_flightready">
+   <rebind input="kb1_ "/>
+  </action>
+ </actionmap>
+</ActionMaps>
+"""
 
 
 def make_repository() -> StarCitizenProfileRepository:
@@ -305,3 +350,63 @@ def test_export_keeps_distinct_trigger_modes_for_same_input() -> None:
     assert len(button6_rebinds) == 2
     assert any((rebind.model_extra or {}).get("@activationMode") == "delayed_press" for rebind in button6_rebinds)
     assert any((rebind.model_extra or {}).get("@activationMode") is None for rebind in button6_rebinds)
+
+
+def test_exported_profile_document_round_trips_through_xml_serializer(tmp_path: Path) -> None:
+    repo = make_repository()
+
+    session = repo.load_profile(
+        Path("tests/fixtures/profiles/layout_VKB_final_3_22_exported.xml"),
+        imported_role_map={"js1": "right_stick", "js2": "left_stick"},
+    )
+    exported = repo.export_profile(session)
+
+    assert exported.document is not None
+    xml_text = serialize_action_maps_xml(exported.document)
+    output_path = tmp_path / "roundtrip_export.xml"
+    output_path.write_text(xml_text, encoding="utf-8")
+    reparsed = get_action_maps_object(str(output_path))
+
+    assert reparsed.model_dump(by_alias=True, exclude_none=False) == exported.document.model_dump(
+        by_alias=True,
+        exclude_none=False,
+    )
+
+
+def test_load_profile_accepts_export_without_actionmap_section(tmp_path: Path) -> None:
+    repo = make_repository()
+    profile_path = tmp_path / "layout_4_71_exported.xml"
+    profile_path.write_text(MINIMAL_EMPTY_EXPORT, encoding="utf-8")
+
+    document = get_action_maps_object(str(profile_path))
+    session = repo.load_profile(
+        profile_path,
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+
+    assert document.profileName == "4_71"
+    assert document.actionmap == []
+    assert session.profile.profile_name == "4_71"
+    assert session.profile.bindings == []
+    assert session.diagnostics == []
+
+
+def test_load_profile_ignores_blank_placeholder_rebinds(tmp_path: Path) -> None:
+    repo = make_repository()
+    profile_path = tmp_path / "placeholders_only.xml"
+    profile_path.write_text(PLACEHOLDER_REBINDS_EXPORT, encoding="utf-8")
+
+    session = repo.load_profile(
+        profile_path,
+        imported_role_map={"js1": "left_stick", "js2": "right_stick"},
+    )
+    exported = repo.export_profile(session)
+
+    assert session.profile.bindings == []
+    assert session.profile.passthrough_records == []
+    assert session.profile.unresolved_bindings == []
+    assert session.diagnostics == []
+    assert exported.document is not None
+    action_map = next(action_map for action_map in exported.document.actionmap if action_map.name == "spaceship_general")
+    inputs = [rebind.input for action in action_map.action for rebind in action.rebind]
+    assert inputs == ["js2_ ", "kb1_ "]

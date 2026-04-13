@@ -5,8 +5,8 @@
     "joystick_right_name_filter": "VKBsim Gladiator EVO R",
     "joystick_type_left": "VKB Default",
     "joystick_type_right": "VKB Default",
-    "joystick_instance_left": 2,
-    "joystick_instance_right": 1,
+    "joystick_instance_left": 1,
+    "joystick_instance_right": 2,
     "joystick_side_identifier_left": "L",
     "joystick_side_identifier_right": "R",
     "modifier_key": "rctrl"

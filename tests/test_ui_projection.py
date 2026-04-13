@@ -330,3 +330,78 @@ def test_catalog_view_filters_entries_for_selected_trigger_mode() -> None:
     entries = build_session_catalog_entries(catalog, selected_trigger_mode=TriggerMode.HOLD)
 
     assert [entry.action_name for entry in entries] == ["hold_ready"]
+
+
+def test_projection_overlays_default_bindings_into_effective_view() -> None:
+    catalog = make_catalog(
+        make_action_definition("default_pitch", actionmap_name="spaceship_movement"),
+    )
+    session = make_session(catalog=catalog, bindings=[])
+    default_session = make_session(
+        catalog=catalog,
+        bindings=[
+            BindingEdit(
+                role="left_stick",
+                slot_id="button1",
+                action_name="default_pitch",
+                trigger_mode=TriggerMode.PLAIN,
+                source_actionmap_name="spaceship_movement",
+            )
+        ],
+    )
+
+    projection = project_session_view(
+        session,
+        joystick_buttons_by_slot=joystick_buttons_by_slot(),
+        default_session=default_session,
+    )
+
+    assert not projection.left_config.configured_actions
+    assert "default_pitch" in {
+        action.name for action in projection.effective_left_config.configured_actions.values()
+    }
+    assert any(
+        row.action_name == "default_pitch" and row.binding_source == "default"
+        for row in projection.effective_binding_rows
+    )
+
+
+def test_projection_hides_default_row_when_explicit_binding_overrides_same_slot() -> None:
+    catalog = make_catalog(
+        make_action_definition("default_pitch", actionmap_name="spaceship_movement"),
+        make_action_definition("custom_pitch", actionmap_name="spaceship_movement"),
+    )
+    session = make_session(
+        catalog=catalog,
+        bindings=[
+            BindingEdit(
+                role="left_stick",
+                slot_id="button1",
+                action_name="custom_pitch",
+                trigger_mode=TriggerMode.PLAIN,
+                source_actionmap_name="spaceship_movement",
+            )
+        ],
+    )
+    default_session = make_session(
+        catalog=catalog,
+        bindings=[
+            BindingEdit(
+                role="left_stick",
+                slot_id="button1",
+                action_name="default_pitch",
+                trigger_mode=TriggerMode.PLAIN,
+                source_actionmap_name="spaceship_movement",
+            )
+        ],
+    )
+
+    projection = project_session_view(
+        session,
+        joystick_buttons_by_slot=joystick_buttons_by_slot(),
+        default_session=default_session,
+    )
+
+    effective_names = {row.action_name for row in projection.effective_binding_rows if row.side == "left"}
+    assert "custom_pitch" in effective_names
+    assert "default_pitch" not in effective_names

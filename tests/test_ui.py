@@ -30,6 +30,23 @@ from app.components.settings_dialog import SettingsDialog
 
 WINDOWS = platform.system() == "Windows"
 
+MINIMAL_EMPTY_EXPORT = """<ActionMaps version="1" optionsVersion="2" rebindVersion="2" profileName="4_71">
+ <CustomisationUIHeader label="4_71" description="" image="">
+  <devices>
+   <keyboard instance="1"/>
+   <mouse instance="1"/>
+   <joystick instance="1"/>
+   <joystick instance="2"/>
+  </devices>
+  <categories />
+ </CustomisationUIHeader>
+ <options type="keyboard" instance="1" Product="Keyboard"/>
+ <options type="joystick" instance="1" Product="Left Stick"/>
+ <options type="joystick" instance="2" Product="Right Stick"/>
+ <modifiers />
+</ActionMaps>
+"""
+
 
 @pytest.fixture(autouse=True)
 def override_config_path(tmp_path: Path):
@@ -504,6 +521,274 @@ def test_select_control_map_renders_projected_left_and_right_state(main_window: 
     assert main_window.remove_action_button.isEnabled() is True
 
 
+def test_select_control_map_can_render_inherited_default_rows_when_enabled(main_window: ControlMapperApp) -> None:
+    controller = FakeUiController()
+    default_action = JoyAction(
+        name="default_pitch",
+        input="js1_button1",
+        multitap=False,
+        hold=False,
+        category="Vehicles",
+        sub_category="Flight",
+        modifier=False,
+        button=joystick_buttons["button1"],
+    )
+    controller.effective_left_config = JoystickConfig(
+        side="left",
+        configured_actions={default_action.key: default_action},
+    )
+    controller.effective_right_config = JoystickConfig(side="right", configured_actions={})
+    controller.effective_binding_rows = [
+        ProjectedBindingRow(
+            binding_ref=BindingReference(
+                role="left_stick",
+                slot_id="button1",
+                action_name="default_pitch",
+                trigger_mode=TriggerMode.PLAIN,
+                source_record_id="default:1",
+                source_actionmap_name="spaceship_movement",
+            ),
+            side="left",
+            button_name="button1",
+            slot_id="button1",
+            action_name="default_pitch",
+            display_label="Default Pitch",
+            modifier=False,
+            hold=False,
+            multitap=False,
+            binding_source="default",
+        )
+    ]
+    controller.export_state = UiExportState(document={"doc": 1}, export_enabled=True)
+    main_window.session_controller = controller
+    main_window.exported_control_maps = ["tests/fixtures/profiles/profile_with_unknowns.xml"]
+
+    main_window.select_control_map(0)
+    main_window.show_action_panel(main_window.button_refs["button1"], "button1")
+
+    assert "Default Pitch" in main_window.button_refs["button1"].text()
+    assert main_window.actions_table_widget.item(0, 2).text() == "Default"
+
+
+def test_select_control_map_overlays_defaults_with_inverted_export_instances(
+    main_window: ControlMapperApp,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    profile_path = tmp_path / "layout_4_71_empty.xml"
+    profile_path.write_text(MINIMAL_EMPTY_EXPORT, encoding="utf-8")
+
+    main_window.session_controller = None
+    monkeypatch.setattr(
+        main_window,
+        "_resolve_imported_role_map",
+        lambda _path: {"js1": "left_stick", "js2": "right_stick"},
+    )
+    monkeypatch.setattr(
+        main_window,
+        "_resolve_export_role_tokens",
+        lambda: {"left_stick": "js2", "right_stick": "js1"},
+    )
+    main_window.exported_control_maps = [str(profile_path)]
+
+    main_window.select_control_map(0)
+
+    assert main_window.session_controller is not None
+    assert any(
+        row.side == "left" and row.button_name == "y" and row.binding_source == "default"
+        for row in main_window.session_controller.effective_binding_rows
+    )
+    assert main_window.button_refs["y"].text() != "y"
+
+
+def test_default_toggle_and_search_filter_effective_rows(main_window: ControlMapperApp, qtbot: Any) -> None:
+    controller = FakeUiController()
+    default_action = JoyAction(
+        name="default_pitch",
+        input="js1_button1",
+        multitap=False,
+        hold=False,
+        category="Vehicles",
+        sub_category="Flight",
+        modifier=False,
+        button=joystick_buttons["button1"],
+    )
+    explicit_action = JoyAction(
+        name="v_toggle_power",
+        input="js1_button2",
+        multitap=False,
+        hold=False,
+        category="Vehicles",
+        sub_category="Flight",
+        modifier=False,
+        button=joystick_buttons["button2"],
+    )
+    controller.left_config = JoystickConfig(side="left", configured_actions={explicit_action.key: explicit_action})
+    controller.right_config = JoystickConfig(side="right", configured_actions={})
+    controller.effective_left_config = JoystickConfig(
+        side="left",
+        configured_actions={
+            default_action.key: default_action,
+            explicit_action.key: explicit_action,
+        },
+    )
+    controller.effective_right_config = JoystickConfig(side="right", configured_actions={})
+    controller.binding_rows = [
+        ProjectedBindingRow(
+            binding_ref=BindingReference(
+                role="left_stick",
+                slot_id="button2",
+                action_name="v_toggle_power",
+                trigger_mode=TriggerMode.PLAIN,
+            ),
+            side="left",
+            button_name="button2",
+            slot_id="button2",
+            action_name="v_toggle_power",
+            display_label="Toggle Power",
+            modifier=False,
+            hold=False,
+            multitap=False,
+        )
+    ]
+    controller.effective_binding_rows = [
+        ProjectedBindingRow(
+            binding_ref=BindingReference(
+                role="left_stick",
+                slot_id="button1",
+                action_name="default_pitch",
+                trigger_mode=TriggerMode.PLAIN,
+                source_record_id="default:1",
+            ),
+            side="left",
+            button_name="button1",
+            slot_id="button1",
+            action_name="default_pitch",
+            display_label="Default Pitch",
+            modifier=False,
+            hold=False,
+            multitap=False,
+            binding_source="default",
+        ),
+        ProjectedBindingRow(
+            binding_ref=BindingReference(
+                role="left_stick",
+                slot_id="button2",
+                action_name="v_toggle_power",
+                trigger_mode=TriggerMode.PLAIN,
+            ),
+            side="left",
+            button_name="button2",
+            slot_id="button2",
+            action_name="v_toggle_power",
+            display_label="Toggle Power",
+            modifier=False,
+            hold=False,
+            multitap=False,
+            binding_source="explicit",
+        ),
+    ]
+    controller.export_state = UiExportState(document={"doc": 1}, export_enabled=True)
+    main_window.session_controller = controller
+    main_window.exported_control_maps = ["tests/fixtures/profiles/profile_with_unknowns.xml"]
+
+    main_window.select_control_map(0)
+    main_window.action_search_line_edit.setText("power")
+
+    assert main_window.actions_table_widget.rowCount() == 1
+    assert main_window.actions_table_widget.item(0, 0).text() == "button2"
+    assert main_window.actions_table_widget.item(0, 1).text() == "Toggle Power"
+    assert "Toggle Power" in main_window.button_refs["button2"].text()
+
+    qtbot.mouseClick(main_window.show_default_bindings_checkbox, Qt.MouseButton.LeftButton)
+
+    assert "default_pitch" not in main_window.button_refs["button1"].text()
+
+
+def test_select_control_map_searches_and_renders_localized_display_labels(
+    main_window: ControlMapperApp,
+) -> None:
+    controller = FakeUiController()
+    action = JoyAction(
+        name="view_clear_saved_view",
+        input="js1_button1",
+        multitap=False,
+        hold=False,
+        category="Camera",
+        sub_category="Advanced",
+        modifier=False,
+        button=joystick_buttons["button1"],
+    )
+    controller.left_config = JoystickConfig(side="left", configured_actions={action.key: action})
+    controller.binding_rows = [
+        ProjectedBindingRow(
+            binding_ref=BindingReference(
+                role="left_stick",
+                slot_id="button1",
+                action_name="view_clear_saved_view",
+                trigger_mode=TriggerMode.PLAIN,
+            ),
+            side="left",
+            button_name="button1",
+            slot_id="button1",
+            action_name="view_clear_saved_view",
+            display_label="@ui_CIAdvanCamClearSave",
+            modifier=False,
+            hold=False,
+            multitap=False,
+        )
+    ]
+    controller.export_state = UiExportState(document={"doc": 1}, export_enabled=True)
+    main_window.session_controller = controller
+    main_window.exported_control_maps = ["tests/fixtures/profiles/profile_with_unknowns.xml"]
+
+    main_window.select_control_map(0)
+    main_window.action_search_line_edit.setText("saved view")
+
+    assert main_window.actions_table_widget.rowCount() == 1
+    assert main_window.actions_table_widget.item(0, 1).text() == "Clear Saved View"
+
+
+def test_select_control_map_uses_localized_button_labels(main_window: ControlMapperApp) -> None:
+    controller = FakeUiController()
+    action = JoyAction(
+        name="view_clear_saved_view",
+        input="js1_button1",
+        multitap=False,
+        hold=False,
+        category="Camera",
+        sub_category="Advanced",
+        modifier=False,
+        button=joystick_buttons["button1"],
+    )
+    controller.left_config = JoystickConfig(side="left", configured_actions={action.key: action})
+    controller.binding_rows = [
+        ProjectedBindingRow(
+            binding_ref=BindingReference(
+                role="left_stick",
+                slot_id="button1",
+                action_name="view_clear_saved_view",
+                trigger_mode=TriggerMode.PLAIN,
+            ),
+            side="left",
+            button_name="button1",
+            slot_id="button1",
+            action_name="view_clear_saved_view",
+            display_label="@ui_CIAdvanCamClearSave",
+            modifier=False,
+            hold=False,
+            multitap=False,
+        )
+    ]
+    controller.export_state = UiExportState(document={"doc": 1}, export_enabled=True)
+    main_window.session_controller = controller
+    main_window.exported_control_maps = ["tests/fixtures/profiles/profile_with_unknowns.xml"]
+
+    main_window.select_control_map(0)
+
+    assert main_window.button_refs["button1"].text() == "Clear Saved View"
+
+
 def test_select_control_map_keeps_session_with_partial_role_map_diagnostics(main_window: ControlMapperApp) -> None:
     controller = FakeUiController()
     controller.diagnostics = [
@@ -615,10 +900,21 @@ def test_export_failure_shows_message_and_clears_stale_export_state(main_window:
 
 def test_diagnostics_render_in_generalized_table(main_window: ControlMapperApp) -> None:
     controller = FakeUiController()
+    controller.catalog_entries = [
+        SessionCatalogEntry(
+            action_name="v_emergency_exit",
+            actionmap_name="seat_general",
+            category="@ui_CCSeatGeneral",
+            subcategory="@ui_CGSeatGeneral",
+            display_label="@ui_CIEmergencyExit",
+            supports_joystick=True,
+            supported_trigger_modes=(TriggerMode.PLAIN,),
+        )
+    ]
     controller.diagnostics = [
         UiDiagnosticRow(
             kind="unresolved-device",
-            action="seat_exit",
+            action="v_emergency_exit",
             detail="Device token 'js2' could not be matched to a role.",
             side="unknown",
             record_id="record-1",
@@ -643,8 +939,9 @@ def test_diagnostics_render_in_generalized_table(main_window: ControlMapperApp) 
     assert main_window.unsupported_actions_table_widget.horizontalHeaderItem(2).text() == "Detail"
     assert main_window.unsupported_actions_table_widget.horizontalHeaderItem(3).text() == "Side"
     assert main_window.unsupported_actions_table_widget.item(0, 0).text() == "unresolved-device"
-    assert main_window.unsupported_actions_table_widget.item(0, 1).text() == "seat_exit"
+    assert main_window.unsupported_actions_table_widget.item(0, 1).text() == "Emergency Exit Seat"
     assert main_window.unsupported_actions_table_widget.item(1, 0).text() == "unknown-action"
+    assert main_window.unsupported_actions_table_widget.item(1, 1).text() == "v_unknown_custom_action"
 
 
 def test_validation_label_reflects_controller_export_state(main_window: ControlMapperApp) -> None:
@@ -676,6 +973,17 @@ def test_validation_label_reflects_controller_export_state(main_window: ControlM
 
 def test_blocked_conflict_summary_disables_save_and_export(main_window: ControlMapperApp) -> None:
     controller = FakeUiController()
+    controller.catalog_entries = [
+        SessionCatalogEntry(
+            action_name="v_emergency_exit",
+            actionmap_name="seat_general",
+            category="@ui_CCSeatGeneral",
+            subcategory="@ui_CGSeatGeneral",
+            display_label="@ui_CIEmergencyExit",
+            supports_joystick=True,
+            supported_trigger_modes=(TriggerMode.PLAIN,),
+        )
+    ]
     controller.export_state = UiExportState(
         document=None,
         blocked_conflicts=[
@@ -685,7 +993,7 @@ def test_blocked_conflict_summary_disables_save_and_export(main_window: ControlM
                 device_token="js2",
                 slot_token="button1",
                 trigger_token="plain",
-                action_name="seat_exit",
+                action_name="v_emergency_exit",
             )
         ],
         export_enabled=False,
@@ -696,7 +1004,7 @@ def test_blocked_conflict_summary_disables_save_and_export(main_window: ControlM
     main_window.select_control_map(0)
 
     assert main_window.blocked_conflicts_label.text() == "Blocked Conflicts (1)"
-    assert "seat_exit" in main_window.blocked_conflicts_summary.text()
+    assert "Emergency Exit Seat" in main_window.blocked_conflicts_summary.text()
     assert "js2/button1" in main_window.blocked_conflicts_summary.text()
     assert main_window.export_button.isEnabled() is False
     assert main_window.save_export_button.isEnabled() is False
@@ -736,7 +1044,7 @@ def test_action_panel_refreshes_on_toggle(main_window: ControlMapperApp) -> None
     main_window.show_action_panel(button, button_label)
     left_names: set[str] = set()
     for row in range(main_window.actions_table_widget.rowCount()):
-        item = main_window.actions_table_widget.item(row, 0)
+        item = main_window.actions_table_widget.item(row, 1)
         if item is not None:
             left_names.add(item.text())
     assert "left_action" in left_names
@@ -745,7 +1053,7 @@ def test_action_panel_refreshes_on_toggle(main_window: ControlMapperApp) -> None
 
     right_names: set[str] = set()
     for row in range(main_window.actions_table_widget.rowCount()):
-        item = main_window.actions_table_widget.item(row, 0)
+        item = main_window.actions_table_widget.item(row, 1)
         if item is not None:
             right_names.add(item.text())
     assert "right_action" in right_names
